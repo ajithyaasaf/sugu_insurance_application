@@ -141,7 +141,7 @@ const AppLayout: React.FC = () => {
 
             {/* Main content */}
             <div className="flex-1 flex flex-col overflow-hidden">
-                <ExpiringBanner />
+                {/* <ExpiringBanner /> */}
                 {/* Top bar */}
                 <header className="flex items-center justify-between px-4 sm:px-6 py-3 bg-white border-b border-surface-200">
                     <div className="flex items-center gap-4 lg:gap-0">
