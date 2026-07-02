@@ -39,10 +39,10 @@ const Login: React.FC = () => {
 
     return (
         <div className="min-h-screen flex flex-col md:flex-row bg-white text-surface-900 font-sans overflow-hidden">
-            
+
             {/* Left Column: Premium Light Login Form (Changed md:w-1/2 to w-full to center the form. Restore to md:w-1/2 if right column is enabled) */}
             <div className="w-full min-h-screen flex flex-col justify-between p-8 lg:p-16 relative overflow-hidden bg-surface-50">
-                
+
                 {/* Subtle background glow effects */}
                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
                     <div className="absolute top-[-20%] right-[-10%] w-[60%] h-[60%] bg-primary-500/[0.04] rounded-full blur-[120px]" />
@@ -70,15 +70,15 @@ const Login: React.FC = () => {
 
                 {/* Central Form Container */}
                 <div className="w-full max-w-md mx-auto my-auto py-12 relative z-10 animate-fade-in">
-                    
+
                     {/* Header */}
                     <div className="mb-8">
                         <h2 className="text-3xl font-extrabold tracking-tight text-surface-900">
                             {isRegister ? 'Get Started' : 'Welcome Back'}
                         </h2>
                         <p className="text-surface-500 mt-2 text-sm">
-                            {isRegister 
-                                ? 'Create your professional account to manage client portfolios.' 
+                            {isRegister
+                                ? 'Create your professional account to manage client portfolios.'
                                 : 'Sign in to access your dashboard, policies, and commissions.'}
                         </p>
                     </div>
@@ -192,7 +192,7 @@ const Login: React.FC = () => {
                 </div>
             </div>
             */}
-            
+
         </div>
     );
 };
