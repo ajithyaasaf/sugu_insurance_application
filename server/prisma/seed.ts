@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -22,7 +23,6 @@ const companies = [
 
 async function main() {
     console.log('🌱 Seeding companies...');
-
     for (const company of companies) {
         await prisma.company.upsert({
             where: { id: company.name }, // Will fail on first run, handled by createMany below
@@ -30,12 +30,42 @@ async function main() {
             create: company,
         });
     }
+    const companyCount = await prisma.company.count();
+    console.log(`✅ Seeded ${companyCount} companies`);
 
-    // The createMany fallback was removing unique checks and causing duplicates.
-    // We strictly use upsert now.
+    console.log('👤 Seeding default users...');
+    const saltRounds = 12;
+    const initialPassword = process.env.INITIAL_USER_PASSWORD;
+    if (!initialPassword) {
+        throw new Error('INITIAL_USER_PASSWORD environment variable is required to seed users.');
+    }
+    const defaultPasswordHash = await bcrypt.hash(initialPassword, saltRounds);
 
-    const count = await prisma.company.count();
-    console.log(`✅ Seeded ${count} companies`);
+    // 1. Seed Agent (Owner/Admin)
+    await prisma.user.upsert({
+        where: { email: 'admin@gmail.com' },
+        update: {},
+        create: {
+            email: 'admin@gmail.com',
+            name: 'Agent Owner',
+            passwordHash: defaultPasswordHash,
+            role: 'agent',
+        },
+    });
+
+    // 2. Seed Staff (Employee)
+    await prisma.user.upsert({
+        where: { email: 'staff@gmail.com' },
+        update: {},
+        create: {
+            email: 'staff@gmail.com',
+            name: 'Staff Member',
+            passwordHash: defaultPasswordHash,
+            role: 'staff',
+        },
+    });
+
+    console.log('✅ Seeded default users (admin@gmail.com & staff@gmail.com)');
 }
 
 main()
