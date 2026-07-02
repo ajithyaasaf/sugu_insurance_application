@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { HiOutlineShieldCheck, HiOutlineMail, HiOutlineLockClosed, HiOutlineUser } from 'react-icons/hi';
 import Button from '../components/ui/Button';
-import loginHero from '../assets/login-hero.png';
+// import loginHero from '../assets/login-hero.png';
 
 const Login: React.FC = () => {
     const { login, register } = useAuth();
@@ -40,8 +40,8 @@ const Login: React.FC = () => {
     return (
         <div className="min-h-screen flex flex-col md:flex-row bg-white text-surface-900 font-sans overflow-hidden">
             
-            {/* Left Column: Premium Light Login Form */}
-            <div className="w-full md:w-1/2 min-h-screen flex flex-col justify-between p-8 lg:p-16 relative overflow-hidden bg-surface-50">
+            {/* Left Column: Premium Light Login Form (Changed md:w-1/2 to w-full to center the form. Restore to md:w-1/2 if right column is enabled) */}
+            <div className="w-full min-h-screen flex flex-col justify-between p-8 lg:p-16 relative overflow-hidden bg-surface-50">
                 
                 {/* Subtle background glow effects */}
                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -49,7 +49,7 @@ const Login: React.FC = () => {
                     <div className="absolute bottom-[-20%] left-[-10%] w-[60%] h-[60%] bg-primary-600/[0.03] rounded-full blur-[120px]" />
                 </div>
 
-                {/* Mobile background photo overlay (Watermark effect - light mode) */}
+                {/* Mobile background photo overlay (Watermark effect - light mode - commented out temporarily)
                 <div className="absolute inset-0 block md:hidden pointer-events-none z-0">
                     <img 
                         src={loginHero} 
@@ -58,6 +58,7 @@ const Login: React.FC = () => {
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-surface-50 via-surface-50/75 to-surface-50/30" />
                 </div>
+                */}
 
                 {/* Top Logo / Branding */}
                 <div className="relative z-10 flex items-center gap-3">
@@ -168,21 +169,18 @@ const Login: React.FC = () => {
                 </div>
             </div>
 
-            {/* Right Column: Dynamic Architectural Photographic Asset */}
+            {/* Right Column: Dynamic Architectural Photographic Asset (Commented out temporarily. To restore, uncomment this and change left column class back to md:w-1/2)
             <div className="hidden md:flex md:w-1/2 relative bg-surface-950 items-end justify-start p-16 overflow-hidden">
                 
-                {/* Main Hero Photo Asset */}
                 <img 
                     src={loginHero} 
                     alt="Insurance Client Collaboration" 
                     className="absolute inset-0 w-full h-full object-cover opacity-90"
                 />
 
-                {/* Dark Vignette Overlay for Premium Readability */}
                 <div className="absolute inset-0 bg-gradient-to-t from-surface-950 via-surface-950/40 to-transparent pointer-events-none" />
                 <div className="absolute inset-0 bg-gradient-to-r from-surface-950/30 via-transparent to-transparent pointer-events-none" />
 
-                {/* Glassmorphic Slogan Panel */}
                 <div className="relative z-10 max-w-lg bg-white/[0.04] backdrop-blur-lg rounded-2xl border border-white/10 p-8 shadow-2xl animate-fade-in" style={{ animationDelay: '200ms' }}>
                     <div className="w-8 h-1 bg-primary-500 rounded-full mb-4" />
                     <h3 className="text-2xl font-bold tracking-tight text-white mb-2 leading-tight">
@@ -193,6 +191,7 @@ const Login: React.FC = () => {
                     </p>
                 </div>
             </div>
+            */}
             
         </div>
     );

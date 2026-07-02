@@ -35,11 +35,16 @@ async function main() {
 
     console.log('👤 Seeding default users...');
     const saltRounds = 12;
-    const initialPassword = process.env.INITIAL_USER_PASSWORD;
-    if (!initialPassword) {
-        throw new Error('INITIAL_USER_PASSWORD environment variable is required to seed users.');
+    
+    const adminPassword = process.env.INITIAL_ADMIN_PASSWORD;
+    const staffPassword = process.env.INITIAL_STAFF_PASSWORD;
+
+    if (!adminPassword || !staffPassword) {
+        throw new Error('Both INITIAL_ADMIN_PASSWORD and INITIAL_STAFF_PASSWORD environment variables are required.');
     }
-    const defaultPasswordHash = await bcrypt.hash(initialPassword, saltRounds);
+
+    const adminPasswordHash = await bcrypt.hash(adminPassword, saltRounds);
+    const staffPasswordHash = await bcrypt.hash(staffPassword, saltRounds);
 
     // 1. Seed Agent (Owner/Admin)
     await prisma.user.upsert({
@@ -48,7 +53,7 @@ async function main() {
         create: {
             email: 'admin@gmail.com',
             name: 'Agent Owner',
-            passwordHash: defaultPasswordHash,
+            passwordHash: adminPasswordHash,
             role: 'agent',
         },
     });
@@ -60,7 +65,7 @@ async function main() {
         create: {
             email: 'staff@gmail.com',
             name: 'Staff Member',
-            passwordHash: defaultPasswordHash,
+            passwordHash: staffPasswordHash,
             role: 'staff',
         },
     });
