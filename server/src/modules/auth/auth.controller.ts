@@ -3,6 +3,7 @@ import { authService } from './auth.service';
 import { sendSuccess, sendError } from '../../utils/apiResponse';
 import { verifyRefreshToken } from '../../utils/jwt';
 import { env } from '../../config/env';
+import { ActivityService } from '../activity/activity.service';
 
 const isProd = env.NODE_ENV === 'production' || env.CLIENT_URL.includes('pages.dev');
 
@@ -116,7 +117,17 @@ export class AuthController {
         }
     }
 
-    async logout(_req: Request, res: Response) {
+    async logout(req: Request, res: Response) {
+        if (req.user) {
+            ActivityService.logActivity({
+                userId: req.user.userId,
+                userRole: req.user.role,
+                action: 'LOGOUT',
+                entityType: 'auth',
+                title: `User logged out`,
+                description: `Logout successful`,
+            });
+        }
         res.clearCookie('accessToken', COOKIE_OPTIONS);
         res.clearCookie('refreshToken', COOKIE_OPTIONS);
         sendSuccess({ res, statusCode: 200, message: 'Logged out' });

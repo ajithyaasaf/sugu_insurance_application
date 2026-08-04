@@ -1,6 +1,7 @@
 import prisma from '../../utils/prisma';
 import { Prisma, PolicyType, PolicyVehicleClass } from '@prisma/client';
 import { ownerFilter } from '../../utils/rbac';
+import { ActivityService } from '../activity/activity.service';
 
 interface CreateLeadInput {
     name: string;
@@ -28,6 +29,8 @@ interface CreateLeadInput {
     dealerId?: string;
     policyOrigin?: 'new_vehicle' | 'fresh' | 'external_renewal' | 'in_system_renewal';
     ncbPercentage?: number | null;
+    tpStartDate?: string | null;
+    tpEndDate?: string | null;
 }
 
 interface UpdateLeadInput {
@@ -56,11 +59,13 @@ interface UpdateLeadInput {
     dealerId?: string;
     policyOrigin?: 'new_vehicle' | 'fresh' | 'external_renewal' | 'in_system_renewal';
     ncbPercentage?: number | null;
+    tpStartDate?: string | null;
+    tpEndDate?: string | null;
 }
 
 export class LeadService {
     async create(userId: string, role: string, data: CreateLeadInput) {
-        return prisma.lead.create({
+        const lead = await prisma.lead.create({
             data: {
                 userId,
                 name: data.name,
@@ -88,6 +93,8 @@ export class LeadService {
                 premiumAmount: data.premiumAmount,
                 startDate: data.startDate ? new Date(data.startDate) : null,
                 expiryDate: data.expiryDate ? new Date(data.expiryDate) : null,
+                tpStartDate: data.tpStartDate ? new Date(data.tpStartDate) : null,
+                tpEndDate: data.tpEndDate ? new Date(data.tpEndDate) : null,
                 dealerId: data.dealerId || null,
                 policyOrigin: data.policyOrigin as any || null,
                 ncbPercentage: data.ncbPercentage ?? null,
@@ -96,6 +103,19 @@ export class LeadService {
                 updatedBy: role,
             },
         });
+
+        ActivityService.logActivity({
+            userId,
+            userRole: role,
+            action: 'CREATE',
+            entityType: 'lead',
+            entityId: lead.id,
+            title: `New Lead Created: ${lead.name}`,
+            description: `Lead created for ${lead.name} (${lead.phone || 'No phone'})`,
+            metadata: { leadId: lead.id, status: lead.status, interestedProduct: lead.interestedProduct },
+        });
+
+        return lead;
     }
 
     async findAll(
@@ -169,7 +189,7 @@ export class LeadService {
     async update(userId: string, role: string, id: string, data: UpdateLeadInput) {
         await this.findById(userId, role, id);
 
-        return prisma.lead.update({
+        const lead = await prisma.lead.update({
             where: { id },
             data: {
                 ...data,
@@ -182,6 +202,8 @@ export class LeadService {
                 // Process dates if provided
                 startDate: data.startDate ? new Date(data.startDate) : undefined,
                 expiryDate: data.expiryDate ? new Date(data.expiryDate) : undefined,
+                tpStartDate: data.tpStartDate === null ? null : (data.tpStartDate ? new Date(data.tpStartDate) : undefined),
+                tpEndDate: data.tpEndDate === null ? null : (data.tpEndDate ? new Date(data.tpEndDate) : undefined),
                 companyId: data.companyId || undefined,
                 vehicleNumber: data.vehicleNumber || undefined,
                 make: data.make || undefined,
@@ -196,15 +218,41 @@ export class LeadService {
                 updatedBy: role,
             },
         });
+
+        ActivityService.logActivity({
+            userId,
+            userRole: role,
+            action: 'UPDATE',
+            entityType: 'lead',
+            entityId: lead.id,
+            title: `Lead Updated: ${lead.name}`,
+            description: `Updated lead details for ${lead.name} (Status: ${lead.status})`,
+            metadata: { leadId: lead.id, status: lead.status },
+        });
+
+        return lead;
     }
 
     async softDelete(userId: string, role: string, id: string) {
         await this.findById(userId, role, id);
 
-        return prisma.lead.update({
+        const lead = await prisma.lead.update({
             where: { id },
             data: { deletedAt: new Date() },
         });
+
+        ActivityService.logActivity({
+            userId,
+            userRole: role,
+            action: 'DELETE',
+            entityType: 'lead',
+            entityId: id,
+            title: `Lead Deleted: ${lead.name}`,
+            description: `Soft deleted lead record for ${lead.name}`,
+            metadata: { leadId: id, name: lead.name },
+        });
+
+        return lead;
     }
 
     async convertToCustomer(
@@ -233,6 +281,8 @@ export class LeadService {
             tax?: number | null;
             totalPremium?: number | null;
             dealerId?: string | null;
+            tpStartDate?: string | null;
+            tpEndDate?: string | null;
         }
     ) {
         const lead = await this.findById(userId, role, id);
@@ -348,6 +398,8 @@ export class LeadService {
                         dealerId: lead.dealerId || extra.dealerId || null,
                         policyOrigin: (extra.policyOrigin || lead.policyOrigin || 'fresh') as any,
                         ncbPercentage: extra.ncbPercentage ?? lead.ncbPercentage ?? null,
+                        tpStartDate: lead.tpStartDate || (extra.tpStartDate ? new Date(extra.tpStartDate) : null),
+                        tpEndDate: lead.tpEndDate || (extra.tpEndDate ? new Date(extra.tpEndDate) : null),
 
                         status: 'active',
                         createdBy: role,
@@ -369,6 +421,17 @@ export class LeadService {
                     }
                 });
             }
+
+            ActivityService.logActivity({
+                userId,
+                userRole: role,
+                action: 'CONVERT',
+                entityType: 'lead',
+                entityId: id,
+                title: `Lead Converted: ${customer.name}`,
+                description: `Lead converted to customer account for ${customer.name}`,
+                metadata: { leadId: id, customerId: customer.id },
+            });
 
             return customer;
         });

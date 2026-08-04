@@ -16,6 +16,7 @@ model User {
   role         Role         @default(agent)
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
+  activityLogs ActivityLog[]
   claims       Claim[]
   commissions  Commission[]
   customers    Customer[]
@@ -24,6 +25,7 @@ model User {
   leads        Lead[]
   payments     Payment[]
   policies     Policy[]
+  policyOffers PolicyOffer[]
 
   @@index([email])
 }
@@ -79,6 +81,8 @@ model Lead {
   registrationDate  DateTime?
   ncbPercentage     Float?
   policyOrigin      PolicyOrigin?
+  tpStartDate       DateTime?
+  tpEndDate         DateTime?
   user              User                @relation(fields: [userId], references: [id])
 
   @@index([userId])
@@ -112,12 +116,13 @@ model Customer {
 }
 
 model Company {
-  id          String       @id @default(uuid())
-  name        String
-  type        String?
-  category    String?
-  commissions Commission[]
-  policies    Policy[]
+  id           String        @id @default(uuid())
+  name         String
+  type         String?
+  category     String?
+  commissions  Commission[]
+  policies     Policy[]
+  policyOffers PolicyOffer[]
 
   @@index([name])
 }
@@ -156,8 +161,11 @@ model Policy {
   vehicleClass       PolicyVehicleClass?
   cancelledAt        DateTime?
   registrationDate   DateTime?
+  offer              PolicyOffer?
   ncbPercentage      Float?
   policyOrigin       PolicyOrigin        @default(fresh)
+  tpStartDate        DateTime?
+  tpEndDate          DateTime?
   claims             Claim[]
   commissionPolicies CommissionPolicy[]
   followUps          FollowUp[]
@@ -344,6 +352,7 @@ enum PolicyType {
   motor
   health
   life
+  non_motor
   other
 }
 
@@ -360,6 +369,7 @@ enum PolicyVehicleClass {
   SAOD_PVT
   CPA
   Home_Insurance
+  RAK_Policy
   Others
 }
 
@@ -368,4 +378,56 @@ enum PolicyOrigin {
   fresh
   external_renewal
   in_system_renewal
+}
+
+model ActivityLog {
+  id          String   @id @default(uuid())
+  userId      String
+  userRole    String   @default("agent")
+  action      String   // CREATE, UPDATE, DELETE, STATUS_CHANGE, LOGIN, EXPORT, CONVERT, PAYMENT_REC, CLAIM_FILED
+  entityType  String   // lead, customer, policy, payment, claim, followup, dealer, commission, auth
+  entityId    String?
+  title       String
+  description String?
+  metadata    Json?    // Stores snapshot diffs: { oldStatus, newStatus, changedFields, amount, etc. }
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([entityType])
+  @@index([action])
+  @@index([createdAt])
+}
+
+/**
+ * PolicyOffer tracks promotional discount offers applied to a Motor Policy.
+ * - Offer is attached post-issuance by Agent/Admin on the /offers page.
+ * - grossPremium: Original full premium (e.g. ₹40,000)
+ * - offerAmount: Discount fronted by agency (e.g. ₹20,000)
+ * - customerPayable: Amount customer actually pays (grossPremium - offerAmount, e.g. ₹20,000)
+ * - Customer Payment records are set to customerPayable — existing PaymentService is untouched.
+ */
+model PolicyOffer {
+  id               String   @id @default(uuid())
+  userId           String
+  policyId         String   @unique
+  companyId        String
+  grossPremium     Float
+  offerAmount      Float
+  customerPayable  Float
+  notes            String?
+  createdBy        String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  policy  Policy  @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([companyId])
+  @@index([createdAt])
 }

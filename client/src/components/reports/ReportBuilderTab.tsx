@@ -1,13 +1,14 @@
 import React, { useState, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { 
-    HiOutlineTable, 
-    HiOutlineFilter, 
-    HiOutlineRefresh, 
-    HiOutlineAdjustments, 
+import {
+    HiOutlineTable,
+    HiOutlineFilter,
+    HiOutlineRefresh,
+    HiOutlineAdjustments,
     HiOutlineDocumentDownload,
     HiOutlineUser,
-    HiOutlineDatabase
+    HiOutlineDatabase,
+    HiOutlineTag,
 } from 'react-icons/hi';
 import toast from 'react-hot-toast';
 import api from '../../api/client';
@@ -18,12 +19,12 @@ import EmptyState from '../ui/EmptyState';
 import ReportTable from './ReportTable';
 import { formatVehicleClass } from '../../utils/format';
 import { BarChartRow, PolicyPieChart, CompanyBarChart } from './ReportCharts';
-import { 
-    POLICY_TYPES, VEHICLE_CLASSES, POLICY_STATUSES, 
-    PAYMENT_STATUSES, CLAIM_STATUSES, FOLLOWUP_STATUSES 
+import {
+    POLICY_TYPES, VEHICLE_CLASSES, POLICY_STATUSES,
+    PAYMENT_STATUSES, CLAIM_STATUSES, FOLLOWUP_STATUSES
 } from '../../utils/constants';
 
-type Source = 'policies' | 'policies-expired' | 'payments' | 'claims' | 'customers' | 'followups' | 'customer-snapshot';
+type Source = 'policies' | 'policies-expired' | 'payments' | 'claims' | 'customers' | 'followups' | 'customer-snapshot' | 'offers';
 type GroupBy = 'company' | 'dealer' | 'policyType' | 'vehicleClass' | 'status' | 'month' | 'policyOrigin' | '';
 
 interface Column { key: string; label: string }
@@ -47,6 +48,7 @@ const SOURCE_OPTIONS: { value: Source; label: string; icon: React.ElementType }[
     { value: 'claims', label: 'Claims', icon: HiOutlineDocumentDownload },
     { value: 'customers', label: 'Customers', icon: HiOutlineTable },
     { value: 'followups', label: 'Follow-ups', icon: HiOutlineRefresh },
+    // { value: 'offers', label: 'Offers & Discounts', icon: HiOutlineTag },
     { value: 'customer-snapshot', label: 'Customer Statement', icon: HiOutlineUser },
 ];
 
@@ -74,7 +76,11 @@ function getGroupOptions(source: Source): { value: GroupBy; label: string }[] {
             { value: 'month', label: 'By Month' },
         ];
         case 'payments': return [
-            { value: 'status', label: 'By Status' },
+            { value: 'status', label: 'Status' },
+            { value: 'month', label: 'Month' },
+        ];
+        case 'offers': return [
+            { value: 'company', label: 'By Company' },
             { value: 'month', label: 'By Month' },
         ];
         default: return [];
@@ -162,11 +168,11 @@ const ReportBuilderTab: React.FC = () => {
     const handleExport = useCallback(async (format: 'xlsx' | 'pdf', cols: Column[]) => {
         try {
             toast.loading(`Generating ${format.toUpperCase()}...`, { id: 'export' });
-            
+
             let exportSource: string = source;
             let exportCols = cols;
-            let exportTitle = source === 'policies-expired' 
-                ? 'Policy Expire Register' 
+            let exportTitle = source === 'policies-expired'
+                ? 'Policy Expire Register'
                 : `${source.charAt(0).toUpperCase() + source.slice(1)} Report`;
 
             if (source === 'customer-snapshot') {
@@ -315,7 +321,7 @@ const ReportBuilderTab: React.FC = () => {
     const handleFullExport = useCallback(async (format: 'xlsx' | 'pdf') => {
         try {
             toast.loading(`Compiling Full ${format.toUpperCase()} Portfolio Statement...`, { id: 'full-export' });
-            
+
             const fileTitle = `${report?.summary?.customerName || 'Customer'}_Portfolio_Statement`;
             const res = await api.post('/reports/export', {
                 source: 'customer-snapshot-full',
@@ -523,13 +529,15 @@ const ReportBuilderTab: React.FC = () => {
                                 <div>
                                     <label className="label">Policy Type</label>
                                     <SearchableSelect
-                                        options={POLICY_TYPES.map(t => ({ value: t, label: t.charAt(0).toUpperCase() + t.slice(1) }))}
+                                        options={POLICY_TYPES.map(t => ({ value: t, label: t === 'non_motor' ? 'Non Motor' : t.charAt(0).toUpperCase() + t.slice(1) }))}
                                         value={localFilters.policyType || ''}
                                         onChange={val => {
                                             updateLocalFilter('policyType', val);
-                                            // Auto-clear vehicle class and origin if switching away from motor
-                                            if (val !== 'motor') {
+                                            // Auto-clear vehicle class if switching away from motor and non_motor
+                                            if (val !== 'motor' && val !== 'non_motor') {
                                                 updateLocalFilter('vehicleClass', '');
+                                            }
+                                            if (val !== 'motor') {
                                                 updateLocalFilter('policyOrigin', '');
                                             }
                                         }}
@@ -564,12 +572,12 @@ const ReportBuilderTab: React.FC = () => {
                                 <div>
                                     <label className="label">Vehicle Class</label>
                                     <SearchableSelect
-                                        disabled={!!(localFilters.policyType && localFilters.policyType !== 'motor')}
+                                        disabled={!!(localFilters.policyType && localFilters.policyType !== 'motor' && localFilters.policyType !== 'non_motor')}
                                         options={VEHICLE_CLASSES.map(t => ({ value: t, label: formatVehicleClass(t) }))}
                                         value={localFilters.vehicleClass || ''}
                                         onChange={val => updateLocalFilter('vehicleClass', val)}
                                         allLabel="All Classes"
-                                        placeholder={localFilters.policyType && localFilters.policyType !== 'motor' ? "N/A (Motor Only)" : "Select vehicle class..."}
+                                        placeholder={localFilters.policyType && localFilters.policyType !== 'motor' && localFilters.policyType !== 'non_motor' ? "N/A" : "Select vehicle class..."}
                                     />
                                 </div>
                             )}
@@ -669,9 +677,9 @@ const ReportBuilderTab: React.FC = () => {
             {/* Results */}
             {isError ? (
                 <div className="card card-body py-16 mt-4 border-dashed border-2 border-surface-200">
-                    <EmptyState 
-                        message="We encountered an issue while generating this report." 
-                        icon={<HiOutlineFilter className="w-16 h-16 text-surface-300" />} 
+                    <EmptyState
+                        message="We encountered an issue while generating this report."
+                        icon={<HiOutlineFilter className="w-16 h-16 text-surface-300" />}
                     />
                     <div className="flex justify-center mt-2">
                         <button onClick={clearFilters} className="btn-ghost text-primary-600 font-semibold">
@@ -684,9 +692,9 @@ const ReportBuilderTab: React.FC = () => {
             ) : report ? (
                 report.total === 0 ? (
                     <div className="card card-body py-20 mt-4 border-dashed border-2 border-surface-200">
-                        <EmptyState 
-                            message="No results match your current filters" 
-                            icon={<HiOutlineFilter className="w-16 h-16 text-surface-300" />} 
+                        <EmptyState
+                            message="No results match your current filters"
+                            icon={<HiOutlineFilter className="w-16 h-16 text-surface-300" />}
                         />
                         <div className="flex justify-center mt-2">
                             <button onClick={clearFilters} className="btn-ghost text-primary-600 font-semibold">
@@ -695,213 +703,220 @@ const ReportBuilderTab: React.FC = () => {
                         </div>
                     </div>
                 ) : (
-                <div className="space-y-4">
-                    {/* Summary info */}
-                    <div className="flex items-center justify-between mt-4">
-                        <p className="text-xs text-surface-500 font-medium">
-                            {report.grouped
-                                ? `Grouped by ${report.groupLabel} • ${report.total} groups`
-                                : `${report.total} records found`}
-                        </p>
-                    </div>
+                    <div className="space-y-4">
+                        {/* Summary info */}
+                        <div className="flex items-center justify-between mt-4">
+                            <p className="text-xs text-surface-500 font-medium">
+                                {report.grouped
+                                    ? `Grouped by ${report.groupLabel} • ${report.total} groups`
+                                    : `${report.total} records found`}
+                            </p>
+                        </div>
 
-                    {/* Dynamic Charts Section */}
-                    {isSnapshot && report.summary ? (
-                        <div className="space-y-6">
-                            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                                <div className="card p-4 bg-primary-50 border border-primary-100">
-                                    <p className="text-xs text-primary-600 font-bold uppercase">Total Policies</p>
-                                    <p className="text-2xl font-bold text-primary-900">{report.summary.totalPolicies}</p>
+                        {/* Dynamic Charts Section */}
+                        {isSnapshot && report.summary ? (
+                            <div className="space-y-6">
+                                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                                    <div className="card p-4 bg-primary-50 border border-primary-100">
+                                        <p className="text-xs text-primary-600 font-bold uppercase">Total Policies</p>
+                                        <p className="text-2xl font-bold text-primary-900">{report.summary.totalPolicies}</p>
+                                    </div>
+                                    <div className="card p-4 bg-emerald-50 border border-emerald-100">
+                                        <p className="text-xs text-emerald-600 font-bold uppercase">Total Premium Paid</p>
+                                        <p className="text-2xl font-bold text-emerald-900">₹{report.summary.totalPremium.toLocaleString('en-IN')}</p>
+                                    </div>
+                                    <div className="card p-4 bg-rose-50 border border-rose-100">
+                                        <p className="text-xs text-rose-600 font-bold uppercase">Total Claims Made</p>
+                                        <p className="text-2xl font-bold text-rose-900">{report.summary.totalClaims}</p>
+                                    </div>
+                                    <div className="card p-4 bg-orange-50 border border-orange-100">
+                                        <p className="text-xs text-orange-600 font-bold uppercase">Total Bill Amount</p>
+                                        <p className="text-2xl font-bold text-orange-900">₹{report.summary.totalClaimedAmount.toLocaleString('en-IN')}</p>
+                                    </div>
+                                    <div className="card p-4 bg-purple-50 border border-purple-100">
+                                        <p className="text-xs text-purple-600 font-bold uppercase">Total Claim Settled Amount</p>
+                                        <p className="text-2xl font-bold text-purple-900">₹{report.summary.totalBillAmount.toLocaleString('en-IN')}</p>
+                                    </div>
                                 </div>
-                                <div className="card p-4 bg-emerald-50 border border-emerald-100">
-                                    <p className="text-xs text-emerald-600 font-bold uppercase">Total Premium Paid</p>
-                                    <p className="text-2xl font-bold text-emerald-900">₹{report.summary.totalPremium.toLocaleString('en-IN')}</p>
-                                </div>
-                                <div className="card p-4 bg-rose-50 border border-rose-100">
-                                    <p className="text-xs text-rose-600 font-bold uppercase">Total Claims Made</p>
-                                    <p className="text-2xl font-bold text-rose-900">{report.summary.totalClaims}</p>
-                                </div>
-                                <div className="card p-4 bg-orange-50 border border-orange-100">
-                                    <p className="text-xs text-orange-600 font-bold uppercase">Total Bill Amount</p>
-                                    <p className="text-2xl font-bold text-orange-900">₹{report.summary.totalClaimedAmount.toLocaleString('en-IN')}</p>
-                                </div>
-                                <div className="card p-4 bg-purple-50 border border-purple-100">
-                                    <p className="text-xs text-purple-600 font-bold uppercase">Total Claim Settled Amount</p>
-                                    <p className="text-2xl font-bold text-purple-900">₹{report.summary.totalBillAmount.toLocaleString('en-IN')}</p>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="card card-body">
+                                        <h3 className="text-sm font-bold text-surface-900 mb-4">Portfolio by Insurer</h3>
+                                        <table className="table">
+                                            <thead><tr><th>Insurer</th><th className="text-right">Policies</th><th className="text-right">Premium</th></tr></thead>
+                                            <tbody>
+                                                {report.summary.insurers.map((ins: any, i: number) => (
+                                                    <tr key={i}>
+                                                        <td className="font-medium text-surface-900">{ins.name}</td>
+                                                        <td className="text-right">{ins.count}</td>
+                                                        <td className="text-right font-medium text-emerald-600">₹{ins.premium.toLocaleString('en-IN')}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div className="card card-body">
+                                        <h3 className="text-sm font-bold text-surface-900 mb-4">Portfolio by Vehicle</h3>
+                                        <table className="table">
+                                            <thead><tr><th>Vehicle Type</th><th className="text-right">Policies</th><th className="text-right">Premium</th></tr></thead>
+                                            <tbody>
+                                                {report.summary.vehicles.map((veh: any, i: number) => (
+                                                    <tr key={i}>
+                                                        <td className="font-medium text-surface-900">{formatVehicleClass(veh.name)}</td>
+                                                        <td className="text-right">{veh.count}</td>
+                                                        <td className="text-right font-medium text-emerald-600">₹{veh.premium.toLocaleString('en-IN')}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="card card-body">
-                                    <h3 className="text-sm font-bold text-surface-900 mb-4">Portfolio by Insurer</h3>
-                                    <table className="table">
-                                        <thead><tr><th>Insurer</th><th className="text-right">Policies</th><th className="text-right">Premium</th></tr></thead>
-                                        <tbody>
-                                            {report.summary.insurers.map((ins: any, i: number) => (
-                                                <tr key={i}>
-                                                    <td className="font-medium text-surface-900">{ins.name}</td>
-                                                    <td className="text-right">{ins.count}</td>
-                                                    <td className="text-right font-medium text-emerald-600">₹{ins.premium.toLocaleString('en-IN')}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                                <div className="card card-body">
-                                    <h3 className="text-sm font-bold text-surface-900 mb-4">Portfolio by Vehicle</h3>
-                                    <table className="table">
-                                        <thead><tr><th>Vehicle Type</th><th className="text-right">Policies</th><th className="text-right">Premium</th></tr></thead>
-                                        <tbody>
-                                            {report.summary.vehicles.map((veh: any, i: number) => (
-                                                <tr key={i}>
-                                                    <td className="font-medium text-surface-900">{formatVehicleClass(veh.name)}</td>
-                                                    <td className="text-right">{veh.count}</td>
-                                                    <td className="text-right font-medium text-emerald-600">₹{veh.premium.toLocaleString('en-IN')}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    ) : report.grouped ? (
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                            <div className="card card-body">
-                                <p className="text-sm font-bold text-surface-900 mb-4">Volume by {report.groupLabel}</p>
-                                <BarChartRow
-                                    data={report.data}
-                                    nameKey="name"
-                                    valueKey={source === 'payments' ? 'amountSum' : 'totalPremiumSum'}
-                                    label={source === 'payments' ? 'Amount (₹)' : 'Premium (₹)'}
-                                />
-                            </div>
-                            <div className="card card-body">
-                                <p className="text-sm font-bold text-surface-900 mb-4">Distribution by {report.groupLabel}</p>
-                                <PolicyPieChart
-                                    data={report.data}
-                                    nameKey="name"
-                                    valueKey="count"
-                                />
-                            </div>
-                        </div>
-                    ) : (
-                        report.chartsData && (
+                        ) : report.grouped ? (
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                {report.chartsData.policyType && report.chartsData.policyType.length > 0 && (
-                                    <div className="card card-body">
-                                        <p className="text-sm font-bold text-surface-900 mb-4">Breakdown by Policy Type</p>
-                                        <PolicyPieChart
-                                            data={report.chartsData.policyType}
-                                            nameKey="name"
-                                            valueKey="count"
-                                        />
-                                    </div>
-                                )}
-                                {report.chartsData.status && report.chartsData.status.length > 0 && (
-                                    <div className="card card-body">
-                                        <p className="text-sm font-bold text-surface-900 mb-1">Analytics by Status</p>
-                                        <CompanyBarChart
-                                            data={report.chartsData.status}
-                                            nameKey="name"
-                                            valueKey={source === 'payments' ? 'amountSum' : source === 'claims' ? 'claimSum' : source === 'followups' ? 'count' : 'totalPremiumSum'}
-                                            label={source === 'payments' ? 'Amount (₹)' : source === 'claims' ? 'Claim Amount (₹)' : source === 'followups' ? 'Follow-ups' : 'Premium (₹)'}
-                                        />
-                                    </div>
-                                )}
+                                <div className="card card-body">
+                                    <p className="text-sm font-bold text-surface-900 mb-4">Volume by {report.groupLabel}</p>
+                                    <BarChartRow
+                                        data={report.data}
+                                        nameKey="name"
+                                        valueKey={
+                                            source === 'payments' ? 'amountSum' :
+                                            source === 'claims' ? 'billSum' :
+                                            'totalPremiumSum'
+                                        }
+                                        label={
+                                            source === 'payments' ? 'Amount (₹)' :
+                                            source === 'claims' ? 'Claim Amount (₹)' :
+                                            'Premium (₹)'
+                                        }
+                                    />
+                                </div>
+                                <div className="card card-body">
+                                    <p className="text-sm font-bold text-surface-900 mb-4">Distribution by {report.groupLabel}</p>
+                                    <PolicyPieChart
+                                        data={report.data}
+                                        nameKey="name"
+                                        valueKey="count"
+                                    />
+                                </div>
                             </div>
-                        )
-                    )}
-
-                    {/* Sub-Tab Navigation for Customer Statement */}
-                    {isSnapshot && (
-                        <div className="flex border-b border-surface-200 mt-6 mb-2">
-                            <button
-                                onClick={() => setSubTab('policies')}
-                                className={`py-2.5 px-4 font-bold text-sm border-b-2 transition-all flex items-center gap-2 ${
-                                    subTab === 'policies'
-                                        ? 'border-primary-600 text-primary-600'
-                                        : 'border-transparent text-surface-500 hover:text-surface-800'
-                                }`}
-                            >
-                                📋 Policies Written ({report.total})
-                            </button>
-                            <button
-                                onClick={() => setSubTab('claims')}
-                                className={`py-2.5 px-4 font-bold text-sm border-b-2 transition-all flex items-center gap-2 ${
-                                    subTab === 'claims'
-                                        ? 'border-primary-600 text-primary-600'
-                                        : 'border-transparent text-surface-500 hover:text-surface-800'
-                                }`}
-                            >
-                                ⚠️ Claims Filed ({report.claims?.length || 0})
-                            </button>
-                            <button
-                                onClick={() => setSubTab('expiring')}
-                                className={`py-2.5 px-4 font-bold text-sm border-b-2 transition-all flex items-center gap-2 ${
-                                    subTab === 'expiring'
-                                        ? 'border-primary-600 text-primary-600'
-                                        : 'border-transparent text-surface-500 hover:text-surface-800'
-                                }`}
-                            >
-                                ⏳ Expiring Soon (60 Days) ({report.expiring?.length || 0})
-                            </button>
-                        </div>
-                    )}
-
-                    {isSnapshot ? (
-                        subTab === 'claims' ? (
-                            <ReportTable 
-                                data={(report.claims || []).map((c: any) => ({
-                                    ...c,
-                                    vehicleNumber: c.policyType?.toLowerCase() === 'motor' ? c.vehicleNumber : c.productName
-                                }))} 
-                                columns={[
-                                    { key: 'claimNumber', label: 'Claim No' },
-                                    { key: 'policyNumber', label: 'Policy No' },
-                                    { key: 'vehicleNumber', label: 'Vehicle / Detail' },
-                                    { key: 'claimDate', label: 'Claim Date' },
-                                    { key: 'billAmount', label: 'Bill Amount (₹)' },
-                                    { key: 'claimAmount', label: 'Claim Settled Amount (₹)' },
-                                    { key: 'status', label: 'Status' },
-                                ]} 
-                            />
-                        ) : subTab === 'expiring' ? (
-                            <ReportTable 
-                                data={(report.expiring || []).map((e: any) => ({
-                                    ...e,
-                                    vehicleNo: e.policyType?.toLowerCase() === 'motor' ? e.vehicleNo : e.productName,
-                                    vehicleClass: e.policyType?.toLowerCase() === 'motor' ? e.vehicleClass : '—'
-                                }))} 
-                                columns={[
-                                    { key: 'policyNumber', label: 'Policy No' },
-                                    { key: 'companyName', label: 'Insurer' },
-                                    { key: 'vehicleClass', label: 'Vehicle Class' },
-                                    { key: 'vehicleNo', label: 'Vehicle / Detail' },
-                                    { key: 'expiryDate', label: 'Expiry Date' },
-                                    { key: 'daysRemaining', label: 'Days Left' },
-                                ]} 
-                            />
                         ) : (
-                            <ReportTable 
-                                data={report.data} 
-                                columns={report.columns.filter((c: Column) => !hiddenColumns.includes(c.key))} 
-                            />
-                        )
-                    ) : (
-                        <ReportTable 
-                            data={report.data} 
-                            columns={report.columns.filter((c: Column) => !report.grouped ? !hiddenColumns.includes(c.key) : true)} 
-                        />
-                    )}
+                            report.chartsData && (
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    {report.chartsData.policyType && report.chartsData.policyType.length > 0 && (
+                                        <div className="card card-body">
+                                            <p className="text-sm font-bold text-surface-900 mb-4">Breakdown by Policy Type</p>
+                                            <PolicyPieChart
+                                                data={report.chartsData.policyType}
+                                                nameKey="name"
+                                                valueKey="count"
+                                            />
+                                        </div>
+                                    )}
+                                    {report.chartsData.status && report.chartsData.status.length > 0 && (
+                                        <div className="card card-body">
+                                            <p className="text-sm font-bold text-surface-900 mb-1">
+                                                {source === 'offers' ? 'Offers & Discounts by Insurer' : 'Analytics by Status'}
+                                            </p>
+                                            <CompanyBarChart
+                                                data={report.chartsData.status}
+                                                nameKey="name"
+                                                valueKey={source === 'offers' ? 'offerSum' : source === 'payments' ? 'amountSum' : source === 'claims' ? 'claimSum' : source === 'followups' ? 'count' : 'totalPremiumSum'}
+                                                label={source === 'offers' ? 'Discounts Given (₹)' : source === 'payments' ? 'Amount (₹)' : source === 'claims' ? 'Claim Amount (₹)' : source === 'followups' ? 'Follow-ups' : 'Premium (₹)'}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            )
+                        )}
 
-                    {/* Pagination for flat data */}
-                    {!report.grouped && source !== 'customer-snapshot' && report.totalPages > 1 && (
-                        <Pagination
-                            page={page}
-                            totalPages={report.totalPages}
-                            onPageChange={setPage}
-                        />
-                    )}
-                </div>
+                        {/* Sub-Tab Navigation for Customer Statement */}
+                        {isSnapshot && (
+                            <div className="flex border-b border-surface-200 mt-6 mb-2">
+                                <button
+                                    onClick={() => setSubTab('policies')}
+                                    className={`py-2.5 px-4 font-bold text-sm border-b-2 transition-all flex items-center gap-2 ${subTab === 'policies'
+                                            ? 'border-primary-600 text-primary-600'
+                                            : 'border-transparent text-surface-500 hover:text-surface-800'
+                                        }`}
+                                >
+                                    📋 Policies Written ({report.total})
+                                </button>
+                                <button
+                                    onClick={() => setSubTab('claims')}
+                                    className={`py-2.5 px-4 font-bold text-sm border-b-2 transition-all flex items-center gap-2 ${subTab === 'claims'
+                                            ? 'border-primary-600 text-primary-600'
+                                            : 'border-transparent text-surface-500 hover:text-surface-800'
+                                        }`}
+                                >
+                                    ⚠️ Claims Filed ({report.claims?.length || 0})
+                                </button>
+                                <button
+                                    onClick={() => setSubTab('expiring')}
+                                    className={`py-2.5 px-4 font-bold text-sm border-b-2 transition-all flex items-center gap-2 ${subTab === 'expiring'
+                                            ? 'border-primary-600 text-primary-600'
+                                            : 'border-transparent text-surface-500 hover:text-surface-800'
+                                        }`}
+                                >
+                                    ⏳ Expiring Soon (60 Days) ({report.expiring?.length || 0})
+                                </button>
+                            </div>
+                        )}
+
+                        {isSnapshot ? (
+                            subTab === 'claims' ? (
+                                <ReportTable
+                                    data={(report.claims || []).map((c: any) => ({
+                                        ...c,
+                                        vehicleNumber: c.policyType?.toLowerCase() === 'motor' ? c.vehicleNumber : c.productName
+                                    }))}
+                                    columns={[
+                                        { key: 'claimNumber', label: 'Claim No' },
+                                        { key: 'policyNumber', label: 'Policy No' },
+                                        { key: 'vehicleNumber', label: 'Vehicle / Detail' },
+                                        { key: 'claimDate', label: 'Claim Date' },
+                                        { key: 'billAmount', label: 'Bill Amount (₹)' },
+                                        { key: 'claimAmount', label: 'Claim Settled Amount (₹)' },
+                                        { key: 'status', label: 'Status' },
+                                    ]}
+                                />
+                            ) : subTab === 'expiring' ? (
+                                <ReportTable
+                                    data={(report.expiring || []).map((e: any) => ({
+                                        ...e,
+                                        vehicleNo: e.policyType?.toLowerCase() === 'motor' ? e.vehicleNo : e.productName,
+                                        vehicleClass: e.policyType?.toLowerCase() === 'motor' ? e.vehicleClass : '—'
+                                    }))}
+                                    columns={[
+                                        { key: 'policyNumber', label: 'Policy No' },
+                                        { key: 'companyName', label: 'Insurer' },
+                                        { key: 'vehicleClass', label: 'Vehicle Class' },
+                                        { key: 'vehicleNo', label: 'Vehicle / Detail' },
+                                        { key: 'expiryDate', label: 'Expiry Date' },
+                                        { key: 'daysRemaining', label: 'Days Left' },
+                                    ]}
+                                />
+                            ) : (
+                                <ReportTable
+                                    data={report.data}
+                                    columns={(report.columns || []).filter((c: Column) => !hiddenColumns.includes(c.key))}
+                                />
+                            )
+                        ) : (
+                            <ReportTable
+                                data={report.data}
+                                columns={(report.columns || []).filter((c: Column) => !report.grouped ? !hiddenColumns.includes(c.key) : true)}
+                            />
+                        )}
+
+                        {/* Pagination for flat data */}
+                        {!report.grouped && source !== 'customer-snapshot' && report.totalPages > 1 && (
+                            <Pagination
+                                page={page}
+                                totalPages={report.totalPages}
+                                onPageChange={setPage}
+                            />
+                        )}
+                    </div>
                 )
             ) : null}
         </div>

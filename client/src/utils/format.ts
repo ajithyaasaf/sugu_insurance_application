@@ -30,6 +30,24 @@ export const formatDate = (date: string | Date | null | undefined): string => {
     }
 };
 
+export const formatDateTime = (date: string | Date | null | undefined): string => {
+    if (!date) return '—';
+    try {
+        const d = new Date(date);
+        if (isNaN(d.getTime())) return '—';
+        return new Intl.DateTimeFormat('en-IN', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true,
+        }).format(d);
+    } catch (e) {
+        return '—';
+    }
+};
+
 export const formatDateInput = (date: string | Date): string => {
     const d = new Date(date);
     return d.toISOString().split('T')[0];

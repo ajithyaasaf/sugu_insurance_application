@@ -14,7 +14,7 @@ export class SearchService {
         const VALID_VEHICLE_CLASSES = [
             'TW', 'PCV', 'PVT', 'GCV', 'Misc_D', 'CPM', 'Fire', 
             'Public_Liability', 'SAOD_TW', 'SAOD_PVT', 'CPA', 
-            'Home_Insurance', 'Others'
+            'Home_Insurance', 'RAK_Policy', 'Others'
         ];
         const matchedClasses = [query.toUpperCase(), normalizedQuery].filter(
             val => val && VALID_VEHICLE_CLASSES.includes(val)

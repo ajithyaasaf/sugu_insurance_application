@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import api from '../api/client';
 import Modal from '../components/ui/Modal';
 import Pagination from '../components/ui/Pagination';
@@ -10,27 +10,78 @@ import { formatDate, formatCurrency, getStatusColor, daysUntil, formatRelativeDa
 import { POLICY_TYPES as policyTypes, PREMIUM_MODES as premiumModes, POLICY_STATUSES as statusOptions, EDITABLE_POLICY_STATUSES, VEHICLE_CLASSES } from '../utils/constants';
 import toast from 'react-hot-toast';
 import { HiOutlinePlus, HiOutlineSearch, HiOutlinePencil, HiOutlineTrash, HiOutlineDocumentText, HiOutlineRefresh, HiOutlineEye, HiOutlineFilter } from 'react-icons/hi';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useNavigationType } from 'react-router-dom';
 import Button from '../components/ui/Button';
 
 
 
 const Policies: React.FC = () => {
     const navigate = useNavigate();
+    const navType = useNavigationType();
+    const isPop = navType === 'POP';
+
     const [policies, setPolicies] = useState<any[]>([]);
     const [customers, setCustomers] = useState<any[]>([]);
     const [companies, setCompanies] = useState<any[]>([]);
     const [dealers, setDealers] = useState<any[]>([]);
-    const [meta, setMeta] = useState({ page: 1, totalPages: 1, total: 0 });
-    const [search, setSearch] = useState('');
-    const [statusFilter, setStatusFilter] = useState('');
-    const [typeFilter, setTypeFilter] = useState('');
-    const [companyFilter, setCompanyFilter] = useState<string[]>([]);
-    const [dealerFilter, setDealerFilter] = useState('');
-    const [vehicleClassFilter, setVehicleClassFilter] = useState('');
-    const [dateFromFilter, setDateFromFilter] = useState('');
-    const [dateToFilter, setDateToFilter] = useState('');
-    const [showFilters, setShowFilters] = useState(false);
+    const [meta, setMeta] = useState(() => {
+        const page = isPop ? (Number(sessionStorage.getItem('policy_currentPage')) || 1) : 1;
+        return { page, totalPages: 1, total: 0 };
+    });
+    const [search, setSearch] = useState(() => isPop ? (sessionStorage.getItem('policy_search') || '') : '');
+    const [statusFilter, setStatusFilter] = useState(() => isPop ? (sessionStorage.getItem('policy_statusFilter') || '') : '');
+    const [typeFilter, setTypeFilter] = useState(() => isPop ? (sessionStorage.getItem('policy_typeFilter') || '') : '');
+    const [companyFilter, setCompanyFilter] = useState<string[]>(() => {
+        if (!isPop) return [];
+        const val = sessionStorage.getItem('policy_companyFilter');
+        return val ? JSON.parse(val) : [];
+    });
+    const [dealerFilter, setDealerFilter] = useState(() => isPop ? (sessionStorage.getItem('policy_dealerFilter') || '') : '');
+    const [vehicleClassFilter, setVehicleClassFilter] = useState(() => isPop ? (sessionStorage.getItem('policy_vehicleClassFilter') || '') : '');
+    const [dateFromFilter, setDateFromFilter] = useState(() => isPop ? (sessionStorage.getItem('policy_dateFromFilter') || '') : '');
+    const [dateToFilter, setDateToFilter] = useState(() => isPop ? (sessionStorage.getItem('policy_dateToFilter') || '') : '');
+    const [showFilters, setShowFilters] = useState(() => isPop ? (sessionStorage.getItem('policy_showFilters') === 'true') : false);
+
+    // Persist filter states in sessionStorage to survive navigating back/forward
+    useEffect(() => {
+        sessionStorage.setItem('policy_search', search);
+    }, [search]);
+
+    useEffect(() => {
+        sessionStorage.setItem('policy_statusFilter', statusFilter);
+    }, [statusFilter]);
+
+    useEffect(() => {
+        sessionStorage.setItem('policy_typeFilter', typeFilter);
+    }, [typeFilter]);
+
+    useEffect(() => {
+        sessionStorage.setItem('policy_companyFilter', JSON.stringify(companyFilter));
+    }, [companyFilter]);
+
+    useEffect(() => {
+        sessionStorage.setItem('policy_dealerFilter', dealerFilter);
+    }, [dealerFilter]);
+
+    useEffect(() => {
+        sessionStorage.setItem('policy_vehicleClassFilter', vehicleClassFilter);
+    }, [vehicleClassFilter]);
+
+    useEffect(() => {
+        sessionStorage.setItem('policy_dateFromFilter', dateFromFilter);
+    }, [dateFromFilter]);
+
+    useEffect(() => {
+        sessionStorage.setItem('policy_dateToFilter', dateToFilter);
+    }, [dateToFilter]);
+
+    useEffect(() => {
+        sessionStorage.setItem('policy_showFilters', String(showFilters));
+    }, [showFilters]);
+
+    useEffect(() => {
+        sessionStorage.setItem('policy_currentPage', String(meta.page));
+    }, [meta.page]);
     const [loading, setLoading] = useState(true);
     const [modalOpen, setModalOpen] = useState(false);
     const [renewModalOpen, setRenewModalOpen] = useState(false);
@@ -40,12 +91,12 @@ const Policies: React.FC = () => {
         customerId: '', companyId: '', policyNumber: '', policyType: 'motor', vehicleNumber: '', startDate: '', expiryDate: '',
         sumInsured: '', premiumAmount: '', premiumMode: 'yearly', productName: '',
         make: '', model: '', vehicleClass: '', idv: '', od: '', tp: '', tax: '', totalPremium: '', paymentMethod: '', paidAmount: '', dealerId: '',
-        registrationDate: '', policyOrigin: 'fresh', ncbPercentage: ''
+        registrationDate: '', policyOrigin: 'fresh', ncbPercentage: '', tpStartDate: '', tpEndDate: ''
     });
     const [editStatus, setEditStatus] = useState<'active' | 'cancelled'>('active');
     const [renewForm, setRenewForm] = useState({
-        startDate: '', expiryDate: '', premiumAmount: '', totalPremium: '', policyNumber: '', paidAmount: '',
-        od: '', tp: '', tax: '', policyOrigin: 'in_system_renewal', ncbPercentage: ''
+        companyId: '', startDate: '', expiryDate: '', premiumAmount: '', totalPremium: '', policyNumber: '', paidAmount: '',
+        od: '', tp: '', tax: '', policyOrigin: 'in_system_renewal', ncbPercentage: '', idv: '', tpStartDate: '', tpEndDate: ''
     });
     const [renewingParentHadClaim, setRenewingParentHadClaim] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -77,7 +128,18 @@ const Policies: React.FC = () => {
         } catch { toast.error('Failed to fetch policies'); } finally { setLoading(false); }
     }, [search, statusFilter, typeFilter, companyFilter, dealerFilter, vehicleClassFilter, dateFromFilter, dateToFilter]);
 
-    useEffect(() => { fetchPolicies(); }, [fetchPolicies]);
+    const isMounted = useRef(false);
+    useEffect(() => {
+        if (isMounted.current) {
+            setMeta(prev => ({ ...prev, page: 1 }));
+        } else {
+            isMounted.current = true;
+        }
+    }, [search, statusFilter, typeFilter, companyFilter, dealerFilter, vehicleClassFilter, dateFromFilter, dateToFilter]);
+
+    useEffect(() => {
+        fetchPolicies(meta.page);
+    }, [fetchPolicies, meta.page]);
 
     useEffect(() => {
         const loadDropdowns = async () => {
@@ -93,7 +155,7 @@ const Policies: React.FC = () => {
 
     const openCreate = () => {
         setEditing(null);
-        setForm({ customerId: '', companyId: '', policyNumber: '', policyType: 'motor', vehicleNumber: '', startDate: '', expiryDate: '', sumInsured: '', premiumAmount: '', premiumMode: 'yearly', productName: '', make: '', model: '', vehicleClass: '', idv: '', od: '', tp: '', tax: '', totalPremium: '', paymentMethod: '', paidAmount: '', dealerId: '', registrationDate: '', policyOrigin: 'fresh', ncbPercentage: '' });
+        setForm({ customerId: '', companyId: '', policyNumber: '', policyType: 'motor', vehicleNumber: '', startDate: '', expiryDate: '', sumInsured: '', premiumAmount: '', premiumMode: 'yearly', productName: '', make: '', model: '', vehicleClass: '', idv: '', od: '', tp: '', tax: '', totalPremium: '', paymentMethod: '', paidAmount: '', dealerId: '', registrationDate: '', policyOrigin: 'fresh', ncbPercentage: '', tpStartDate: '', tpEndDate: '' });
         setEditStatus('active');
         setErrors({});
         setModalOpen(true);
@@ -111,7 +173,9 @@ const Policies: React.FC = () => {
             paymentMethod: p.paymentMethod || '', paidAmount: '', dealerId: p.dealerId || '',
             registrationDate: p.registrationDate || '',
             policyOrigin: p.policyOrigin || 'fresh',
-            ncbPercentage: p.ncbPercentage !== null && p.ncbPercentage !== undefined ? p.ncbPercentage.toString() : ''
+            ncbPercentage: p.ncbPercentage !== null && p.ncbPercentage !== undefined ? p.ncbPercentage.toString() : '',
+            tpStartDate: p.tpStartDate ? p.tpStartDate.split('T')[0] : '',
+            tpEndDate: p.tpEndDate ? p.tpEndDate.split('T')[0] : ''
         });
         setEditStatus((p.status === 'cancelled' ? 'cancelled' : 'active') as 'active' | 'cancelled');
         setErrors({});
@@ -166,6 +230,8 @@ const Policies: React.FC = () => {
                 dealerId: form.dealerId || undefined,
                 policyOrigin: form.policyOrigin,
                 ncbPercentage: form.ncbPercentage ? parseFloat(form.ncbPercentage as string) : undefined,
+                tpStartDate: (form.vehicleClass === 'SAOD_TW' || form.vehicleClass === 'SAOD_PVT') && form.tpStartDate ? form.tpStartDate : null,
+                tpEndDate: (form.vehicleClass === 'SAOD_TW' || form.vehicleClass === 'SAOD_PVT') && form.tpEndDate ? form.tpEndDate : null,
                 ...(editing ? { status: editStatus } : {}),
             };
             if (editing) {
@@ -224,6 +290,7 @@ const Policies: React.FC = () => {
         const newExpiry = new Date(start);
         newExpiry.setFullYear(newExpiry.getFullYear() + 1);
         setRenewForm({
+            companyId: p.companyId || '',
             startDate: start.toISOString().split('T')[0],
             expiryDate: newExpiry.toISOString().split('T')[0],
             premiumAmount: p.premiumAmount.toString(),
@@ -235,6 +302,9 @@ const Policies: React.FC = () => {
             tax: p.tax?.toString() || '',
             policyOrigin: 'in_system_renewal',
             ncbPercentage: '',
+            idv: p.idv?.toString() || '',
+            tpStartDate: p.tpStartDate ? start.toISOString().split('T')[0] : '',
+            tpEndDate: p.tpEndDate ? newExpiry.toISOString().split('T')[0] : '',
         });
         const parentHadClaim = p.claims?.some((c: any) => c.status !== 'REJECTED');
         setRenewingParentHadClaim(!!parentHadClaim);
@@ -244,6 +314,7 @@ const Policies: React.FC = () => {
 
     const validateRenew = () => {
         const errs: Record<string, string> = {};
+        if (!renewForm.companyId) errs.companyId = 'Please select a company';
         if (!renewForm.policyNumber) errs.policyNumber = 'New policy number is required';
         if (!renewForm.startDate) errs.startDate = 'Start date is required';
         if (!renewForm.expiryDate) errs.expiryDate = 'Expiry date is required';
@@ -262,8 +333,10 @@ const Policies: React.FC = () => {
         setRenewErrors({});
         setIsRenewing(true);
         try {
+            const isSaod = renewingPolicy?.vehicleClass === 'SAOD_TW' || renewingPolicy?.vehicleClass === 'SAOD_PVT';
             await api.post(`/policies/${renewingPolicy.id}/renew`, {
                 ...renewForm,
+                companyId: renewForm.companyId || undefined,
                 premiumAmount: parseFloat(renewForm.premiumAmount),
                 totalPremium: renewForm.totalPremium ? parseFloat(renewForm.totalPremium) : undefined,
                 od: renewForm.od ? parseFloat(renewForm.od) : undefined,
@@ -271,6 +344,9 @@ const Policies: React.FC = () => {
                 tax: renewForm.tax ? parseFloat(renewForm.tax) : undefined,
                 paidAmount: renewForm.paidAmount ? parseFloat(renewForm.paidAmount) : undefined,
                 ncbPercentage: renewForm.ncbPercentage ? parseFloat(renewForm.ncbPercentage.toString()) : undefined,
+                idv: (renewForm.idv !== '' && renewForm.idv !== undefined) ? parseFloat(renewForm.idv) : undefined,
+                tpStartDate: isSaod && renewForm.tpStartDate ? renewForm.tpStartDate : null,
+                tpEndDate: isSaod && renewForm.tpEndDate ? renewForm.tpEndDate : null,
             });
             toast.success('Policy renewed!');
             setRenewModalOpen(false); fetchPolicies(meta.page);
@@ -363,7 +439,7 @@ const Policies: React.FC = () => {
                             <label className="text-[11px] font-bold text-surface-500 uppercase tracking-wider">Type</label>
                             <SearchableSelect
                                 className="w-full"
-                                options={policyTypes.map(t => ({ value: t, label: t.charAt(0).toUpperCase() + t.slice(1) }))}
+                                options={policyTypes.map(t => ({ value: t, label: t === 'non_motor' ? 'Non Motor' : t.charAt(0).toUpperCase() + t.slice(1) }))}
                                 value={typeFilter}
                                 onChange={setTypeFilter}
                                 allLabel="All Types"
@@ -460,7 +536,7 @@ const Policies: React.FC = () => {
                                         <td className="capitalize">
                                             <div className="flex flex-wrap items-center gap-1.5">
                                                 {p.policyType}
-                                                {p.policyType === 'motor' && p.vehicleClass && (
+                                                {p.vehicleClass && (
                                                     <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-surface-100 text-surface-700 border border-surface-200 uppercase">
                                                         {formatVehicleClass(p.vehicleClass)}
                                                     </span>
@@ -523,7 +599,7 @@ const Policies: React.FC = () => {
                             </div>
                         ))}
                     </div>
-                    <Pagination page={meta.page} totalPages={meta.totalPages} onPageChange={(p) => fetchPolicies(p)} />
+                    <Pagination page={meta.page} totalPages={meta.totalPages} onPageChange={(p) => setMeta(prev => ({ ...prev, page: p }))} />
                 </>
             )}
 
@@ -580,23 +656,62 @@ const Policies: React.FC = () => {
                     <p className="text-sm text-surface-500">Renewing policy for <strong>{renewingPolicy?.customer?.name}</strong></p>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="col-span-full">
+                        <div>
+                            <label className="label">Insurance Company *</label>
+                            <SearchableSelect
+                                options={companies
+                                    .filter(c => {
+                                        if (renewingPolicy?.policyType === 'life') return c.name === 'LIC';
+                                        if (renewingPolicy?.policyType === 'health') return ['Star Health Insurance', 'New India Assurance', 'Care Insurance'].includes(c.name);
+                                        if (renewingPolicy?.policyType === 'motor') return !['Star Health Insurance', 'Care Insurance', 'LIC'].includes(c.name);
+                                        return true;
+                                    })
+                                    .map(c => ({ value: c?.id, label: c?.name }))
+                                }
+                                value={renewForm.companyId || ''}
+                                onChange={(val) => handleRenewChange('companyId', val)}
+                                hasError={!!renewErrors.companyId}
+                            />
+                            {renewErrors.companyId && <p className="text-xs text-red-500 mt-1">{renewErrors.companyId}</p>}
+                        </div>
+
+                        <div>
                             <label className="label">New Policy Number *</label>
                             <input className={`input ${renewErrors.policyNumber ? 'border-red-500 focus:ring-red-400' : ''}`} value={renewForm.policyNumber} onChange={(e) => handleRenewChange('policyNumber', e.target.value)} />
                             {renewErrors.policyNumber && <p className="text-xs text-red-500 mt-1">{renewErrors.policyNumber}</p>}
                         </div>
 
-                        <div>
-                            <label className="label">Start Date *</label>
-                            <input type="date" className={`input ${renewErrors.startDate ? 'border-red-500 focus:ring-red-400' : ''}`} value={renewForm.startDate} onChange={(e) => handleRenewChange('startDate', e.target.value)} />
-                            {renewErrors.startDate && <p className="text-xs text-red-500 mt-1">{renewErrors.startDate}</p>}
-                        </div>
+                        {(() => {
+                            const isSaod = renewingPolicy?.vehicleClass === 'SAOD_TW' || renewingPolicy?.vehicleClass === 'SAOD_PVT';
+                            return (
+                                <>
+                                    <div>
+                                        <label className="label">{isSaod ? 'OD Start Date *' : 'Start Date *'}</label>
+                                        <input type="date" className={`input ${renewErrors.startDate ? 'border-red-500 focus:ring-red-400' : ''}`} value={renewForm.startDate} onChange={(e) => handleRenewChange('startDate', e.target.value)} />
+                                        {renewErrors.startDate && <p className="text-xs text-red-500 mt-1">{renewErrors.startDate}</p>}
+                                    </div>
 
-                        <div>
-                            <label className="label">Expiry Date *</label>
-                            <input type="date" className={`input ${renewErrors.expiryDate ? 'border-red-500 focus:ring-red-400' : ''}`} value={renewForm.expiryDate} onChange={(e) => handleRenewChange('expiryDate', e.target.value)} />
-                            {renewErrors.expiryDate && <p className="text-xs text-red-500 mt-1">{renewErrors.expiryDate}</p>}
-                        </div>
+                                    <div>
+                                        <label className="label">{isSaod ? 'OD End Date *' : 'Expiry Date *'}</label>
+                                        <input type="date" className={`input ${renewErrors.expiryDate ? 'border-red-500 focus:ring-red-400' : ''}`} value={renewForm.expiryDate} onChange={(e) => handleRenewChange('expiryDate', e.target.value)} />
+                                        {renewErrors.expiryDate && <p className="text-xs text-red-500 mt-1">{renewErrors.expiryDate}</p>}
+                                    </div>
+
+                                    {isSaod && (
+                                        <>
+                                            <div>
+                                                <label className="label">TP Start Date</label>
+                                                <input type="date" className="input" value={renewForm.tpStartDate || ''} onChange={(e) => handleRenewChange('tpStartDate', e.target.value)} />
+                                            </div>
+                                            <div>
+                                                <label className="label">TP End Date</label>
+                                                <input type="date" className="input" value={renewForm.tpEndDate || ''} onChange={(e) => handleRenewChange('tpEndDate', e.target.value)} />
+                                            </div>
+                                        </>
+                                    )}
+                                </>
+                            );
+                        })()}
 
                         {renewingPolicy?.policyType === 'motor' && (
                             <>
@@ -641,6 +756,10 @@ const Policies: React.FC = () => {
                                 <div>
                                     <label className="label">Tax (GST)</label>
                                     <input type="number" min="0" step="0.01" className="input" value={renewForm.tax} onChange={(e) => handleRenewChange('tax', e.target.value)} />
+                                </div>
+                                <div>
+                                    <label className="label">IDV (Vehicle Value)</label>
+                                    <input type="number" min="0" step="0.01" className="input" value={renewForm.idv} onChange={(e) => handleRenewChange('idv', e.target.value)} />
                                 </div>
                             </>
                         )}

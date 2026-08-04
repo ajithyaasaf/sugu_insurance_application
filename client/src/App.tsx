@@ -16,6 +16,8 @@ import FollowUps from './pages/FollowUps';
 import Dealers from './pages/Dealers';
 import Reports from './pages/Reports';
 import Commissions from './pages/Commissions';
+import Activities from './pages/Activities';
+import Offers from './pages/Offers';
 import UnderConstruction from './pages/UnderConstruction';
 
 const IS_MAINTENANCE_MODE = import.meta.env.VITE_MAINTENANCE_MODE === 'true';
@@ -99,6 +101,14 @@ const App: React.FC = () => {
                                 }
                             >
                                 <Route path="/" element={<Dashboard />} />
+                                <Route
+                                    path="/activities"
+                                    element={
+                                        <RoleProtectedRoute roles={['agent']}>
+                                            <Activities />
+                                        </RoleProtectedRoute>
+                                    }
+                                />
                                 <Route path="/leads" element={<Leads />} />
                                 <Route path="/customers" element={<Customers />} />
                                 <Route path="/policies" element={<Policies />} />
@@ -120,6 +130,14 @@ const App: React.FC = () => {
                                     element={
                                         <RoleProtectedRoute roles={['agent']}>
                                             <Commissions />
+                                        </RoleProtectedRoute>
+                                    }
+                                />
+                                <Route
+                                    path="/offers"
+                                    element={
+                                        <RoleProtectedRoute roles={['agent']}>
+                                            <Offers />
                                         </RoleProtectedRoute>
                                     }
                                 />

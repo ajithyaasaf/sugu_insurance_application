@@ -2,6 +2,7 @@ import prisma from '../../utils/prisma';
 import { Prisma } from '@prisma/client';
 import { getStartOfTodayIST, mapPaymentStatus, getStartOfDayIST, getEndOfDayIST } from '../../utils/date';
 import { ownerFilter } from '../../utils/rbac';
+import { ActivityService } from '../activity/activity.service';
 
 interface CreatePaymentInput {
     policyId: string;
@@ -233,7 +234,26 @@ export class PaymentService {
                 }
             }
 
-            return { payment: mapPaymentStatus(updatedPayment), message: finalMessage };
+            const resultObj = { payment: mapPaymentStatus(updatedPayment), message: finalMessage };
+
+            ActivityService.logActivity({
+                userId,
+                userRole: role,
+                action: updatedPayment.status === 'paid' ? 'PAYMENT_REC' : 'UPDATE',
+                entityType: 'payment',
+                entityId: updatedPayment.id,
+                title: `Payment ${updatedPayment.status.toUpperCase()}: ₹${updatedPayment.paidAmount || updatedPayment.amount}`,
+                description: `Payment updated for ${updatedPayment.customer?.name || 'Customer'} (Status: ${updatedPayment.status})`,
+                metadata: {
+                    paymentId: updatedPayment.id,
+                    amount: updatedPayment.amount,
+                    paidAmount: updatedPayment.paidAmount,
+                    status: updatedPayment.status,
+                    policyId: updatedPayment.policyId,
+                },
+            });
+
+            return resultObj;
         });
     }
 

@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import prisma from '../../utils/prisma';
 import { generateAccessToken, generateRefreshToken } from '../../utils/jwt';
 import { RegisterInput, LoginInput } from './auth.schema';
+import { ActivityService } from '../activity/activity.service';
 
 export class AuthService {
     async register(data: RegisterInput) {
@@ -58,6 +59,16 @@ export class AuthService {
         }
 
         const tokens = this.generateTokens(user.id, user.role);
+
+        // Record activity log
+        ActivityService.logActivity({
+            userId: user.id,
+            userRole: user.role,
+            action: 'LOGIN',
+            entityType: 'auth',
+            title: `User logged in: ${user.name}`,
+            description: `Login successful for ${user.email}`,
+        });
 
         return {
             user: {

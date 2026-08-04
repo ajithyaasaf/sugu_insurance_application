@@ -12,6 +12,7 @@ export const ReportSource = z.enum([
     'customer-snapshot-claims',
     'customer-snapshot-expiring',
     'customer-snapshot-full',
+    'offers',
 ]);
 export type ReportSource = z.infer<typeof ReportSource>;
 

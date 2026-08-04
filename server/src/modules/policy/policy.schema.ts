@@ -5,7 +5,7 @@ export const createPolicySchema = z.object({
         customerId: z.string().min(1, 'Customer ID is required'),
         companyId: z.string().min(1, 'Company ID is required'),
         policyNumber: z.string().optional().or(z.literal('')),
-        policyType: z.enum(['motor', 'health', 'life', 'other']),
+        policyType: z.enum(['motor', 'health', 'life', 'non_motor', 'other']),
         vehicleNumber: z.string().optional().or(z.literal('')),
         startDate: z.string().min(1, 'Start date is required'),
         expiryDate: z.string().min(1, 'Expiry date is required'),
@@ -19,7 +19,7 @@ export const createPolicySchema = z.object({
         make: z.string().optional().or(z.literal('')),
         model: z.string().optional().or(z.literal('')),
         registrationDate: z.string().optional().nullable(),
-        vehicleClass: z.enum(['TW', 'PCV', 'PVT', 'GCV', 'Misc_D', 'CPM', 'Fire', 'Public_Liability', 'SAOD_TW', 'SAOD_PVT', 'CPA', 'Home_Insurance', 'Others']).optional(),
+        vehicleClass: z.enum(['TW', 'PCV', 'PVT', 'GCV', 'Misc_D', 'CPM', 'Fire', 'Public_Liability', 'SAOD_TW', 'SAOD_PVT', 'CPA', 'Home_Insurance', 'RAK_Policy', 'Others']).optional(),
         idv: z.number().min(0).optional(),
         od: z.number().min(0).optional(),
         tp: z.number().min(0).optional(),
@@ -30,6 +30,8 @@ export const createPolicySchema = z.object({
         dealerId: z.string().optional().or(z.literal('')),
         policyOrigin: z.enum(['new_vehicle', 'fresh', 'external_renewal', 'in_system_renewal']).optional().default('fresh'),
         ncbPercentage: z.number().min(0).max(50).optional().nullable(),
+        tpStartDate: z.string().optional().nullable(),
+        tpEndDate: z.string().optional().nullable(),
     }),
 });
 
@@ -38,7 +40,7 @@ export const updatePolicySchema = z.object({
         customerId: z.string().optional(),
         companyId: z.string().optional(),
         policyNumber: z.string().optional().or(z.literal('')),
-        policyType: z.enum(['motor', 'health', 'life', 'other']).optional(),
+        policyType: z.enum(['motor', 'health', 'life', 'non_motor', 'other']).optional(),
         vehicleNumber: z.string().optional().or(z.literal('')),
         startDate: z.string().optional(),
         expiryDate: z.string().optional(),
@@ -53,7 +55,7 @@ export const updatePolicySchema = z.object({
         make: z.string().optional().or(z.literal('')),
         model: z.string().optional().or(z.literal('')),
         registrationDate: z.string().optional().nullable(),
-        vehicleClass: z.enum(['TW', 'PCV', 'PVT', 'GCV', 'Misc_D', 'CPM', 'Fire', 'Public_Liability', 'SAOD_TW', 'SAOD_PVT', 'CPA', 'Home_Insurance', 'Others']).optional(),
+        vehicleClass: z.enum(['TW', 'PCV', 'PVT', 'GCV', 'Misc_D', 'CPM', 'Fire', 'Public_Liability', 'SAOD_TW', 'SAOD_PVT', 'CPA', 'Home_Insurance', 'RAK_Policy', 'Others']).optional(),
         idv: z.number().min(0).optional(),
         od: z.number().min(0).optional(),
         tp: z.number().min(0).optional(),
@@ -63,6 +65,8 @@ export const updatePolicySchema = z.object({
         dealerId: z.string().optional().or(z.literal('')),
         policyOrigin: z.enum(['new_vehicle', 'fresh', 'external_renewal', 'in_system_renewal']).optional(),
         ncbPercentage: z.number().min(0).max(50).optional().nullable(),
+        tpStartDate: z.string().optional().nullable(),
+        tpEndDate: z.string().optional().nullable(),
     }),
 });
 

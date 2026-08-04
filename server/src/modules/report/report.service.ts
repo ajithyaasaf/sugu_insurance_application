@@ -133,6 +133,16 @@ const SOURCE_COLUMNS: Record<string, { key: string; label: string }[]> = {
         { key: 'status', label: 'Status' },
         { key: 'notes', label: 'Notes' },
     ],
+    offers: [
+        { key: 'customerName', label: 'Customer' },
+        { key: 'policyNumber', label: 'Policy No.' },
+        { key: 'companyName', label: 'Company' },
+        { key: 'grossPremium', label: 'Gross Premium (₹)' },
+        { key: 'offerAmount', label: 'Offer Discount (₹)' },
+        { key: 'customerPayable', label: 'Net Payable (₹)' },
+        { key: 'createdAt', label: 'Offer Date' },
+        { key: 'notes', label: 'Notes' },
+    ],
 };
 
 function getColumnsForSource(source: string, policyType?: string): { key: string; label: string }[] {
@@ -376,6 +386,32 @@ function buildFollowUpWhere(userId: string, role: string, filters?: ReportFilter
             where.policy.companyId = filters.companyId;
         }
         if (filters?.policyType) where.policy.policyType = filters.policyType;
+    }
+    return where;
+}
+
+function buildOfferWhere(userId: string, role: string, filters?: ReportFilters) {
+    const where: any = {
+        ...ownerFilter(userId, role),
+        policy: { deletedAt: null },
+    };
+    if (filters?.companyId) where.companyId = filters.companyId;
+    if (filters?.companyIds) {
+        const ids = typeof filters.companyIds === 'string' ? filters.companyIds.split(',') : filters.companyIds;
+        where.companyId = { in: ids };
+    }
+    if (filters?.dateFrom || filters?.dateTo) {
+        where.createdAt = {};
+        if (filters?.dateFrom) where.createdAt.gte = getStartOfDayIST(filters.dateFrom);
+        if (filters?.dateTo) where.createdAt.lte = getEndOfDayIST(filters.dateTo);
+    }
+    if (filters?.customerId) where.policy.customerId = filters.customerId;
+    if (filters?.policyType) where.policy.policyType = filters.policyType;
+    if (filters?.vehicleClass) where.policy.vehicleClass = filters.vehicleClass;
+    if (filters?.dealerId === 'direct') {
+        where.policy.dealerId = null;
+    } else if (filters?.dealerId) {
+        where.policy.dealerId = filters.dealerId;
     }
     return where;
 }
@@ -789,9 +825,126 @@ export class ReportService {
         return { data, total, columns: getColumnsForSource('followups', filters?.policyType) };
     }
 
+    private async queryOffers(userId: string, role: string, filters?: ReportFilters, page = 1, limit = 50) {
+        const where = buildOfferWhere(userId, role, filters);
+        const [rows, total] = await Promise.all([
+            prisma.policyOffer.findMany({
+                where,
+                include: {
+                    policy: { include: { customer: true } },
+                    company: true,
+                },
+                orderBy: { createdAt: 'desc' },
+                skip: (page - 1) * limit,
+                take: limit,
+            }),
+            prisma.policyOffer.count({ where }),
+        ]);
+
+        const data = rows.map((r: any) => ({
+            policyNumber: r.policy?.policyNumber || r.policy?.vehicleNumber || '—',
+            customerName: r.policy?.customer?.name || '—',
+            customerPhone: r.policy?.customer?.phone || '—',
+            companyName: r.company?.name || '—',
+            policyType: r.policy?.policyType ? r.policy.policyType.charAt(0).toUpperCase() + r.policy.policyType.slice(1) : 'Motor',
+            vehicleNumber: r.policy?.vehicleNumber || '—',
+            grossPremium: r.grossPremium,
+            offerAmount: r.offerAmount,
+            customerPayable: r.customerPayable,
+            createdAt: fmtDate(r.createdAt),
+            notes: r.notes || '—',
+        }));
+
+        return { data, total, columns: SOURCE_COLUMNS.offers };
+    }
+
+    private async groupOffers(userId: string, role: string, filters: ReportFilters | undefined, groupBy: ReportGroupBy) {
+        const where = buildOfferWhere(userId, role, filters);
+
+        if (groupBy === 'company') {
+            const groups = await prisma.policyOffer.groupBy({
+                by: ['companyId'],
+                where,
+                _count: { _all: true },
+                _sum: { grossPremium: true, offerAmount: true, customerPayable: true },
+            });
+            const companyIds = groups.map((g: any) => g.companyId);
+            const companies = await prisma.company.findMany({
+                where: { id: { in: companyIds } },
+                select: { id: true, name: true },
+            });
+
+            return {
+                grouped: true,
+                groupLabel: 'Company',
+                columns: [
+                    { key: 'name', label: 'Company' },
+                    { key: 'count', label: 'Offers Count' },
+                    { key: 'grossSum', label: 'Gross Premium (₹)' },
+                    { key: 'offerSum', label: 'Total Discounts (₹)' },
+                    { key: 'netSum', label: 'Net Customer Payable (₹)' },
+                ],
+                data: groups.map((g: any) => ({
+                    name: companies.find((c) => c.id === g.companyId)?.name || 'Unknown',
+                    count: g._count._all,
+                    grossSum: g._sum.grossPremium || 0,
+                    offerSum: g._sum.offerAmount || 0,
+                    netSum: g._sum.customerPayable || 0,
+                })).sort((a: any, b: any) => b.offerSum - a.offerSum),
+                total: groups.length,
+            };
+        }
+
+        if (groupBy === 'month') {
+            const dateFrom = filters?.dateFrom ? new Date(filters.dateFrom) : undefined;
+            const dateTo = filters?.dateTo ? new Date(filters.dateTo + 'T23:59:59.999Z') : undefined;
+
+            const isGlobalRole = ['agent', 'staff', 'admin'].includes(role);
+            const ownershipFilter = isGlobalRole
+                ? Prisma.sql`1=1`
+                : Prisma.sql`o."userId" = ${userId}::uuid`;
+
+            const results: any[] = await prisma.$queryRaw`
+                SELECT 
+                    TO_CHAR(DATE_TRUNC('month', o."createdAt"), 'Mon YYYY') AS name,
+                    COUNT(*)::INT AS count,
+                    SUM(o."grossPremium")::FLOAT AS "grossSum",
+                    SUM(o."offerAmount")::FLOAT AS "offerSum",
+                    SUM(o."customerPayable")::FLOAT AS "netSum"
+                FROM "PolicyOffer" o
+                WHERE 
+                    ${ownershipFilter}
+                    ${dateFrom ? Prisma.sql`AND o."createdAt" >= ${dateFrom}` : Prisma.empty}
+                    ${dateTo ? Prisma.sql`AND o."createdAt" <= ${dateTo}` : Prisma.empty}
+                    ${filters?.companyId ? Prisma.sql`AND o."companyId" = ${filters.companyId}` : Prisma.empty}
+                GROUP BY DATE_TRUNC('month', o."createdAt")
+                ORDER BY DATE_TRUNC('month', o."createdAt") DESC
+            `;
+
+            return {
+                grouped: true,
+                groupLabel: 'Month',
+                columns: [
+                    { key: 'name', label: 'Month' },
+                    { key: 'count', label: 'Offers Count' },
+                    { key: 'grossSum', label: 'Gross Premium (₹)' },
+                    { key: 'offerSum', label: 'Total Discounts (₹)' },
+                    { key: 'netSum', label: 'Net Customer Payable (₹)' },
+                ],
+                data: results,
+                total: results.length,
+            };
+        }
+
+        return null;
+    }
+
     // ── Grouped aggregation queries ──────────────────────
 
     private async queryGrouped(userId: string, role: string, source: ReportSource, filters: ReportFilters | undefined, groupBy: ReportGroupBy) {
+        if (source === 'offers') {
+            return this.groupOffers(userId, role, filters, groupBy);
+        }
         // We only support grouping on policies source for now (most common use case)
         // Other sources can be added the same way
         if (source === 'policies') {
@@ -1182,6 +1335,45 @@ export class ReportService {
                 total: groups.length,
             };
         }
+
+        if (groupBy === 'month') {
+            const dateFrom = filters?.dateFrom ? new Date(filters.dateFrom) : undefined;
+            const dateTo = filters?.dateTo ? new Date(filters.dateTo + 'T23:59:59.999Z') : undefined;
+
+            const isGlobalRoleC = ['agent', 'staff', 'admin'].includes(role);
+            const ownershipFilterC = isGlobalRoleC
+                ? Prisma.sql`1=1`
+                : Prisma.sql`c."userId" = ${userId}::uuid`;
+
+            const results: any[] = await prisma.$queryRaw`
+                SELECT 
+                    TO_CHAR(DATE_TRUNC('month', c."claimDate"), 'Mon YYYY') AS name,
+                    COUNT(*)::INT AS count,
+                    SUM(COALESCE(c."billAmount", c."estimatedAmount", c."claimAmount", 0))::FLOAT AS "billSum",
+                    SUM(COALESCE(c."claimAmount", 0))::FLOAT AS "claimSum"
+                FROM "Claim" c
+                ${(filters?.companyId || filters?.dealerId || filters?.policyType) ? Prisma.sql`JOIN "Policy" pol ON c."policyId" = pol."id"` : Prisma.empty}
+                WHERE 
+                    ${ownershipFilterC}
+                    ${dateFrom ? Prisma.sql`AND c."claimDate" >= ${dateFrom}` : Prisma.empty}
+                    ${dateTo ? Prisma.sql`AND c."claimDate" <= ${dateTo}` : Prisma.empty}
+                    ${filters?.customerId ? Prisma.sql`AND c."customerId" = ${filters.customerId}` : Prisma.empty}
+                    ${filters?.companyId ? Prisma.sql`AND pol."companyId" = ${filters.companyId}` : Prisma.empty}
+                    ${filters?.dealerId ? Prisma.sql`AND pol."dealerId" = ${filters.dealerId}` : Prisma.empty}
+                    ${filters?.policyType ? Prisma.sql`AND pol."policyType"::text = ${filters.policyType}` : Prisma.empty}
+                GROUP BY DATE_TRUNC('month', c."claimDate")
+                ORDER BY DATE_TRUNC('month', c."claimDate") DESC
+            `;
+
+            const columns = [
+                { key: 'name', label: 'Month' },
+                { key: 'count', label: 'Total Claims' },
+                { key: 'billSum', label: 'Claimed Amount (₹)' },
+                { key: 'claimSum', label: 'Settled Amount (₹)' },
+            ];
+            return { grouped: true, groupLabel: 'Month', columns, data: results, total: results.length };
+        }
+
         return null;
     }
 
@@ -1204,6 +1396,7 @@ export class ReportService {
             claims: () => this.queryClaims(userId, role, filters, page, limit),
             customers: () => this.queryCustomers(userId, role, filters, page, limit),
             followups: () => this.queryFollowUps(userId, role, filters, page, limit),
+            offers: () => this.queryOffers(userId, role, filters, page, limit),
             'customer-snapshot': () => this.queryCustomerSnapshot(userId, role, filters),
             'customer-snapshot-full': () => this.queryCustomerSnapshot(userId, role, filters),
             'customer-snapshot-claims': async () => {
@@ -1268,6 +1461,14 @@ export class ReportService {
                 chartsData = {
                     status: statusGroup?.data || []
                 };
+            } else if (source === 'offers') {
+                const companyGroup = await this.groupOffers(userId, role, filters, 'company');
+                chartsData = {
+                    status: (companyGroup?.data || []).map((d: any) => ({
+                        ...d,
+                        totalPremiumSum: d.offerSum || 0,
+                    }))
+                };
             }
         }
 
@@ -1284,14 +1485,15 @@ export class ReportService {
     // ── Dashboard analytics (pre-computed) ───────────────
 
     async getDashboardReport(userId: string, role: string, filters?: { dateFrom?: string; dateTo?: string }) {
-        // IST-aware month start — ensures the "This Month" boundary is midnight IST June 1st,
-        // not midnight UTC (which would be 05:30 IST and miss the first 5.5 hours of the month).
-        const thisMonthStart = getStartOfMonthIST();
+        // IST-aware month start
+        const nowISTStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date()); // YYYY-MM-DD
+        const [y, m] = nowISTStr.split('-').map(Number);
+        const thisMonthStartStr = `${y}-${String(m).padStart(2, '0')}-01`;
 
-        // When the user provides date filters, use those for KPIs; otherwise default to current month
-        const periodFilters: ReportFilters | undefined = filters?.dateFrom || filters?.dateTo
+        // When the user provides date filters, use those; otherwise default to current month
+        const periodFilters: ReportFilters = filters?.dateFrom || filters?.dateTo
             ? filters
-            : undefined;
+            : { dateFrom: thisMonthStartStr };
 
         const ow = ownerFilter(userId, role);
 
@@ -1300,28 +1502,12 @@ export class ReportService {
         // which would falsely inflate "This Month" figures if we counted by entry date.
         // Using startDate ensures the dashboard reflects actual business done in the period.
         const kpiWhere: any = { ...ow, deletedAt: null };
-        if (periodFilters?.dateFrom || periodFilters?.dateTo) {
-            kpiWhere.startDate = {};
-            if (periodFilters.dateFrom) kpiWhere.startDate.gte = getStartOfDayIST(periodFilters.dateFrom);
-            if (periodFilters.dateTo) kpiWhere.startDate.lte = getEndOfDayIST(periodFilters.dateTo);
-        } else {
-            kpiWhere.startDate = { gte: thisMonthStart };
+        kpiWhere.startDate = {};
+        if (periodFilters.dateFrom) kpiWhere.startDate.gte = getStartOfDayIST(periodFilters.dateFrom);
+        if (periodFilters.dateTo) kpiWhere.startDate.lte = getEndOfDayIST(periodFilters.dateTo);
+        if (Object.keys(kpiWhere.startDate).length === 0) {
+            delete kpiWhere.startDate;
         }
-
-        // For monthlyTrend — derive IST-aware YYYY-MM-DD strings so trendStart/trendEnd
-        // align exactly with how startDate values are stored (IST midnight).
-        const nowISTStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date()); // YYYY-MM-DD
-        const trendEndStr = filters?.dateTo ?? nowISTStr;
-        // Default: go back exactly 12 months from the current IST month start
-        let trendStartStr: string;
-        if (filters?.dateFrom) {
-            trendStartStr = filters.dateFrom;
-        } else {
-            const [y, m] = nowISTStr.split('-').map(Number);
-            const prevYear = y - 1;
-            trendStartStr = `${prevYear}-${String(m).padStart(2, '0')}-01`;
-        }
-
 
         const [
             companyPerformance,
@@ -1332,6 +1518,8 @@ export class ReportService {
             renewalStats,
             periodCount,
             periodPremium,
+            vehicleClassPerformance,
+            claimsTrend,
         ] = await Promise.all([
             // Company-wise performance (filtered)
             this.groupPolicies(userId, role, periodFilters, 'company'),
@@ -1342,11 +1530,8 @@ export class ReportService {
             // Dealer performance (filtered)
             this.groupPolicies(userId, role, periodFilters, 'dealer'),
 
-            // Monthly premium trend — uses IST-aware date strings for accurate month grouping
-            this.groupPolicies(userId, role, {
-                dateFrom: trendStartStr,
-                dateTo: trendEndStr,
-            }, 'month'),
+            // Monthly premium trend (filtered)
+            this.groupPolicies(userId, role, periodFilters, 'month'),
 
             // Payment collection summary (filtered)
             this.groupPayments(userId, role, periodFilters, 'status'),
@@ -1369,6 +1554,12 @@ export class ReportService {
                 where: kpiWhere,
                 _sum: { premiumAmount: true, totalPremium: true },
             }),
+
+            // Vehicle Class performance (filtered)
+            this.groupPolicies(userId, role, periodFilters, 'vehicleClass'),
+
+            // Claims month-wise trend (filtered)
+            this.groupClaims(userId, role, periodFilters, 'month'),
         ]);
 
         const [renewedCount, expiredCount] = renewalStats;
@@ -1380,6 +1571,8 @@ export class ReportService {
             dealerPerformance,
             monthlyTrend,
             paymentSummary,
+            vehicleClassPerformance,
+            claimsTrend,
             renewalStats: {
                 renewed: renewedCount,
                 expired: expiredCount,
@@ -1392,6 +1585,8 @@ export class ReportService {
             thisMonth: {
                 policiesAdded: periodCount,
                 totalPremium: totalRev,
+                netPremium: (periodPremium as any)?._sum?.premiumAmount || 0,
+                tax: ((periodPremium as any)?._sum?.totalPremium || 0) - ((periodPremium as any)?._sum?.premiumAmount || 0),
             },
         };
     }
@@ -2119,6 +2314,73 @@ export class ReportService {
 
             doc.end();
         });
+    }
+
+    async getFinancialYears(userId: string, role: string) {
+        const range = await prisma.policy.aggregate({
+            where: {
+                ...ownerFilter(userId, role),
+                deletedAt: null
+            },
+            _min: { startDate: true },
+            _max: { startDate: true }
+        });
+
+        const minDate = range._min.startDate;
+        const maxDate = range._max.startDate;
+
+        // If no data exists, default to current financial year
+        if (!minDate || !maxDate) {
+            const currentYear = new Date().getFullYear();
+            const currentMonth = new Date().getMonth();
+            const startYear = currentMonth < 3 ? currentYear - 1 : currentYear;
+            const endYear = startYear + 1;
+            return [
+                {
+                    label: `FY ${startYear}-${endYear.toString().slice(-2)}`,
+                    dateFrom: `${startYear}-04-01`,
+                    dateTo: `${endYear}-03-31`
+                }
+            ];
+        }
+
+        const minYear = minDate.getFullYear();
+        const minMonth = minDate.getMonth();
+        const startFYYear = minMonth < 3 ? minYear - 1 : minYear;
+
+        const maxYear = maxDate.getFullYear();
+        const maxMonth = maxDate.getMonth();
+        const endFYYear = maxMonth < 3 ? maxYear - 1 : maxYear;
+
+        const fyears = [];
+        for (let y = endFYYear; y >= startFYYear; y--) {
+            const nextYearShort = (y + 1).toString().slice(-2);
+            const dateFrom = `${y}-04-01`;
+            const dateTo = `${y + 1}-03-31`;
+
+            // Calculate aggregate data for this financial year
+            const stats = await prisma.policy.aggregate({
+                where: {
+                    ...ownerFilter(userId, role),
+                    deletedAt: null,
+                    startDate: {
+                        gte: new Date(`${dateFrom}T00:00:00.000Z`),
+                        lte: new Date(`${dateTo}T23:59:59.999Z`)
+                    }
+                },
+                _count: { id: true },
+                _sum: { totalPremium: true }
+            });
+
+            fyears.push({
+                label: `FY ${y}-${nextYearShort}`,
+                dateFrom,
+                dateTo,
+                policyCount: stats._count.id || 0,
+                totalPremium: stats._sum.totalPremium || 0
+            });
+        }
+        return fyears;
     }
 }
 

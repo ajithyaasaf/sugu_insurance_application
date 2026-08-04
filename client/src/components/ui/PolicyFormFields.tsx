@@ -1,6 +1,6 @@
 import React from 'react';
 import SearchableSelect from './SearchableSelect';
-import { POLICY_TYPES, VEHICLE_CLASSES, PREMIUM_MODES } from '../../utils/constants';
+import { POLICY_TYPES, VEHICLE_CLASSES, MOTOR_VEHICLE_CLASSES, NON_MOTOR_VEHICLE_CLASSES, PREMIUM_MODES } from '../../utils/constants';
 import { formatDateInput, formatVehicleClass } from '../../utils/format';
 
 interface PolicyFormFieldsProps {
@@ -19,6 +19,7 @@ interface PolicyFormFieldsProps {
 
 const PolicyFormFields: React.FC<PolicyFormFieldsProps> = ({ form, setForm, companies = [], dealers = [], customers = [], isEditing = false, showQuoteHeader = false, isRenewal = false, parentHadClaim = false, errors = {}, setErrors }) => {
     const isMotor = form.policyType === 'motor';
+    const isNonMotor = form.policyType === 'non_motor';
     const isRequired = !showQuoteHeader;
 
     const dateError = form.expiryDate && form.startDate && form.expiryDate <= form.startDate
@@ -60,9 +61,9 @@ const PolicyFormFields: React.FC<PolicyFormFieldsProps> = ({ form, setForm, comp
         setForm((prev: any) => ({
             ...prev,
             policyType: val,
-            ...(val === 'health' || val === 'life' ? {
-                vehicleNumber: '', make: '', model: '', vehicleClass: '',
-                idv: '', od: '', tp: '', tax: '', totalPremium: '', premiumAmount: '', registrationDate: ''
+            ...(val === 'health' || val === 'life' || val === 'non_motor' ? {
+                vehicleNumber: '', make: '', model: '', registrationDate: '',
+                idv: '', od: '', tp: '', tax: '', totalPremium: '', premiumAmount: ''
             } : val === 'other' ? {
                 vehicleNumber: '', make: '', model: '', vehicleClass: '',
                 idv: '', registrationDate: '',
@@ -105,7 +106,7 @@ const PolicyFormFields: React.FC<PolicyFormFieldsProps> = ({ form, setForm, comp
                 <label className="label">Policy Type {isRequired ? '*' : ''}</label>
                 <SearchableSelect
                     disabled={isEditing || isRenewal}
-                    options={POLICY_TYPES.map(t => ({ value: t, label: t.charAt(0).toUpperCase() + t.slice(1) }))}
+                    options={POLICY_TYPES.map(t => ({ value: t, label: t === 'non_motor' ? 'Non Motor' : t.charAt(0).toUpperCase() + t.slice(1) }))}
                     value={form.policyType || ''}
                     onChange={handleTypeChange}
                     placeholder="Select Type"
@@ -236,6 +237,19 @@ const PolicyFormFields: React.FC<PolicyFormFieldsProps> = ({ form, setForm, comp
                 </div>
             )}
 
+            {isNonMotor && (
+                <div>
+                    <label className="label">Vehicle Class</label>
+                    <SearchableSelect
+                        options={NON_MOTOR_VEHICLE_CLASSES.map(c => ({ value: c, label: formatVehicleClass(c) }))}
+                        value={form.vehicleClass || ''}
+                        onChange={(val) => handleChange('vehicleClass', val)}
+                        allLabel="Select Class"
+                        hasError={!!errors.vehicleClass}
+                    />
+                </div>
+            )}
+
             {isMotor && (
                 <>
                     <div><label className="label">Vehicle Number {isRequired ? '*' : ''}</label>
@@ -262,7 +276,7 @@ const PolicyFormFields: React.FC<PolicyFormFieldsProps> = ({ form, setForm, comp
                     </div>
                     <div><label className="label">Vehicle Class</label>
                         <SearchableSelect
-                            options={VEHICLE_CLASSES.map(c => ({ value: c, label: formatVehicleClass(c) }))}
+                            options={MOTOR_VEHICLE_CLASSES.map(c => ({ value: c, label: formatVehicleClass(c) }))}
                             value={form.vehicleClass || ''}
                             onChange={(val) => handleChange('vehicleClass', val)}
                             allLabel="Select Class"
@@ -283,13 +297,16 @@ const PolicyFormFields: React.FC<PolicyFormFieldsProps> = ({ form, setForm, comp
                     <div><label className="label">TP Premium</label>
                         <input type="number" min="0" step="0.01" className="input" value={form.tp || ''} onChange={(e) => handleChange('tp', e.target.value)} />
                     </div>
-                    <div><label className="label">Tax (GST)</label>
-                        <input type="number" min="0" step="0.01" className="input" value={form.tax || ''} onChange={(e) => handleChange('tax', e.target.value)} />
-                    </div>
                 </>
             )}
 
-            {(form.policyType === 'health' || form.policyType === 'life') && (
+            {(isMotor || form.policyType === 'other' || isNonMotor) && (
+                <div><label className="label">Tax (GST)</label>
+                    <input type="number" min="0" step="0.01" className="input" value={form.tax || ''} onChange={(e) => handleChange('tax', e.target.value)} />
+                </div>
+            )}
+
+            {(form.policyType === 'health' || form.policyType === 'life' || form.policyType === 'non_motor' || form.policyType === 'other') && (
                 <div>
                     <label className="label">Sum Insured</label>
                     <input 
@@ -313,23 +330,64 @@ const PolicyFormFields: React.FC<PolicyFormFieldsProps> = ({ form, setForm, comp
                 {errors.totalPremium && <p className="text-xs text-red-500 mt-1">{errors.totalPremium}</p>}
             </div>
             
-            <div><label className="label">Start Date {isRequired ? '*' : ''}</label>
-                <input type="date" className={`input ${errors.startDate ? 'border-red-500 focus:ring-red-400' : ''}`} data-error-field={errors.startDate ? 'true' : undefined} value={form.startDate?.split('T')[0] || ''} onChange={(e) => handleChange('startDate', e.target.value)} />
-                {errors.startDate && <p className="text-xs text-red-500 mt-1">{errors.startDate}</p>}
-            </div>
-            
-            <div>
-                <label className="label">Expiry Date {isRequired ? '*' : ''}</label>
-                <input
-                    type="date"
-                    className={`input ${dateError || errors.expiryDate ? 'border-red-500 focus:ring-red-400' : ''}`}
-                    data-error-field={(dateError || errors.expiryDate) ? 'true' : undefined}
-                    min={form.startDate || undefined}
-                    value={form.expiryDate?.split('T')[0] || ''}
-                    onChange={(e) => handleChange('expiryDate', e.target.value)}
-                />
-                {(dateError || errors.expiryDate) && <p className="text-xs text-red-500 mt-1">{dateError || errors.expiryDate}</p>}
-            </div>
+            {(() => {
+                const isSaod = form.vehicleClass === 'SAOD_TW' || form.vehicleClass === 'SAOD_PVT';
+                return (
+                    <>
+                        <div>
+                            <label className="label">
+                                {isSaod ? 'OD Start Date' : 'Start Date'} {isRequired ? '*' : ''}
+                            </label>
+                            <input
+                                type="date"
+                                className={`input ${errors.startDate ? 'border-red-500 focus:ring-red-400' : ''}`}
+                                data-error-field={errors.startDate ? 'true' : undefined}
+                                value={form.startDate?.split('T')[0] || ''}
+                                onChange={(e) => handleChange('startDate', e.target.value)}
+                            />
+                            {errors.startDate && <p className="text-xs text-red-500 mt-1">{errors.startDate}</p>}
+                        </div>
+
+                        <div>
+                            <label className="label">
+                                {isSaod ? 'OD End Date' : 'Expiry Date'} {isRequired ? '*' : ''}
+                            </label>
+                            <input
+                                type="date"
+                                className={`input ${dateError || errors.expiryDate ? 'border-red-500 focus:ring-red-400' : ''}`}
+                                data-error-field={(dateError || errors.expiryDate) ? 'true' : undefined}
+                                min={form.startDate || undefined}
+                                value={form.expiryDate?.split('T')[0] || ''}
+                                onChange={(e) => handleChange('expiryDate', e.target.value)}
+                            />
+                            {(dateError || errors.expiryDate) && <p className="text-xs text-red-500 mt-1">{dateError || errors.expiryDate}</p>}
+                        </div>
+
+                        {isSaod && (
+                            <>
+                                <div>
+                                    <label className="label">TP Start Date</label>
+                                    <input
+                                        type="date"
+                                        className="input"
+                                        value={form.tpStartDate?.split('T')[0] || ''}
+                                        onChange={(e) => handleChange('tpStartDate', e.target.value)}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="label">TP End Date</label>
+                                    <input
+                                        type="date"
+                                        className="input"
+                                        value={form.tpEndDate?.split('T')[0] || ''}
+                                        onChange={(e) => handleChange('tpEndDate', e.target.value)}
+                                    />
+                                </div>
+                            </>
+                        )}
+                    </>
+                );
+            })()}
 
             <div><label className="label">Payment Method</label>
                 <SearchableSelect

@@ -20,7 +20,7 @@ router.post('/login', authLimiter, validate(loginSchema), (req, res, next) =>
 router.post('/refresh', (req, res, next) =>
     authController.refresh(req, res, next)
 );
-router.post('/logout', (req, res) => authController.logout(req, res));
+router.post('/logout', authenticate, (req, res) => authController.logout(req, res));
 router.get('/me', authenticate, (req, res, next) =>
     authController.me(req, res, next)
 );

@@ -2,6 +2,7 @@ import prisma from '../../utils/prisma';
 import { Prisma } from '@prisma/client';
 import { buildStatusFilter, mapPolicyStatus, getStartOfTodayIST, getStartOfDayIST, getEndOfDayIST } from '../../utils/date';
 import { ownerFilter } from '../../utils/rbac';
+import { ActivityService } from '../activity/activity.service';
 
 interface CreatePolicyInput {
     customerId: string;
@@ -31,6 +32,8 @@ interface CreatePolicyInput {
     registrationDate?: string;
     policyOrigin?: string;
     ncbPercentage?: number | null;
+    tpStartDate?: string | null;
+    tpEndDate?: string | null;
 }
 
 /** Only these two statuses can be set manually on an existing policy. */
@@ -115,6 +118,8 @@ export class PolicyService {
                     policyOrigin: (data.policyOrigin as any) || 'fresh',
                     ncbPercentage: data.ncbPercentage ?? null,
                     dealerId: data.dealerId,
+                    tpStartDate: data.tpStartDate ? new Date(data.tpStartDate) : null,
+                    tpEndDate: data.tpEndDate ? new Date(data.tpEndDate) : null,
                     createdBy: role,
                     updatedBy: role,
                 },
@@ -144,30 +149,17 @@ export class PolicyService {
                     }
                 });
             } else if (paidAmount > 0.01) {
-                // Scenario 2: Partial Payment at creation (Split into two records)
-                // A. The Paid portion
+                // Scenario 2: Partial Payment at creation (Single partial payment record)
                 await tx.payment.create({
                     data: {
                         userId,
                         policyId: policy.id,
                         customerId: data.customerId,
-                        amount: paidAmount,
+                        amount: fullPremium,
                         paidAmount: paidAmount,
                         paidDate: new Date(),
                         dueDate: policy.startDate,
-                        status: 'paid',
-                        createdBy: role,
-                    }
-                });
-                // B. The Pending balance
-                await tx.payment.create({
-                    data: {
-                        userId,
-                        policyId: policy.id,
-                        customerId: data.customerId,
-                        amount: fullPremium - paidAmount,
-                        dueDate: policy.startDate,
-                        status: 'pending',
+                        status: 'partial',
                         createdBy: role,
                     }
                 });
@@ -187,6 +179,23 @@ export class PolicyService {
             }
 
             return policy;
+        });
+
+        ActivityService.logActivity({
+            userId,
+            userRole: role,
+            action: 'CREATE',
+            entityType: 'policy',
+            entityId: result.id,
+            title: `New Policy Issued: ${result.policyNumber || 'Draft'}`,
+            description: `Policy issued for ${result.customer?.name || 'Customer'} (${result.policyType}) - Amount: ${result.totalPremium || result.premiumAmount}`,
+            metadata: {
+                policyId: result.id,
+                policyNumber: result.policyNumber,
+                customerId: result.customerId,
+                vehicleNumber: result.vehicleNumber,
+                amount: result.totalPremium || result.premiumAmount,
+            },
         });
 
         return result;
@@ -237,7 +246,10 @@ export class PolicyService {
             }),
             ...(isExpiringSoon ? {
                 status: 'active',
-                expiryDate: { gte: todayIST, lte: thirtyDaysFromNow }
+                OR: [
+                    { expiryDate: { gte: todayIST, lte: thirtyDaysFromNow } },
+                    { tpEndDate: { gte: todayIST, lte: thirtyDaysFromNow } }
+                ]
             } : (status ? buildStatusFilter(status) : {})),
             ...(policyType && { policyType: policyType as any }),
             ...(companyId && { companyId }),
@@ -261,6 +273,7 @@ export class PolicyService {
                 customer: true,
                 company: true,
                 dealer: true,
+                offer: true,
                 _count: {
                     select: {
                         renewals: { where: { deletedAt: null } },
@@ -292,8 +305,8 @@ export class PolicyService {
                 customer: true,
                 company: true,
                 dealer: true,
-                parentPolicy: true,
-                renewals: { where: { deletedAt: null } },
+                parentPolicy: { include: { company: true } },
+                renewals: { where: { deletedAt: null }, include: { company: true } },
                 claims: true,
                 payments: { orderBy: { dueDate: 'desc' } },
             },
@@ -396,6 +409,8 @@ export class PolicyService {
                     ...data,
                     startDate: data.startDate ? new Date(data.startDate) : undefined,
                     expiryDate: data.expiryDate ? new Date(data.expiryDate) : undefined,
+                    tpStartDate: data.tpStartDate === null ? null : (data.tpStartDate ? new Date(data.tpStartDate) : undefined),
+                    tpEndDate: data.tpEndDate === null ? null : (data.tpEndDate ? new Date(data.tpEndDate) : undefined),
                     noOfYears: Math.max(1, Math.round(Math.abs(newExpiry.getTime() - newStart.getTime()) / (1000 * 60 * 60 * 24 * 365))),
                     policyType: data.policyType as any,
                     premiumMode: data.premiumMode as any,
@@ -423,20 +438,50 @@ export class PolicyService {
                 const totalCollected = collections._sum.paidAmount || 0;
                 const newBalance = Math.max(0, newEffective - totalCollected);
 
-                // 2. Update the pending placeholder to the new balance
-                await tx.payment.updateMany({
+                // 2. Update the pending or partial placeholder to the new balance
+                const pendingPayment = await tx.payment.findFirst({
                     where: {
                         policyId: id,
                         ...ownerFilter(userId, role),
                         status: 'pending'
-                    },
-                    data: {
-                        amount: newBalance
                     }
                 });
+                if (pendingPayment) {
+                    await tx.payment.update({
+                        where: { id: pendingPayment.id },
+                        data: { amount: newBalance }
+                    });
+                } else {
+                    const partialPayment = await tx.payment.findFirst({
+                        where: {
+                            policyId: id,
+                            ...ownerFilter(userId, role),
+                            status: 'partial'
+                        }
+                    });
+                    if (partialPayment) {
+                        await tx.payment.update({
+                            where: { id: partialPayment.id },
+                            data: { amount: newEffective }
+                        });
+                    }
+                }
             }
 
-            return mapPolicyStatus(updatedPolicy);
+            const resPolicy = mapPolicyStatus(updatedPolicy);
+
+            ActivityService.logActivity({
+                userId,
+                userRole: role,
+                action: 'UPDATE',
+                entityType: 'policy',
+                entityId: updatedPolicy.id,
+                title: `Policy Updated: ${updatedPolicy.policyNumber || 'Draft'}`,
+                description: `Updated policy details for ${updatedPolicy.customer?.name || 'Customer'} (Status: ${updatedPolicy.status})`,
+                metadata: { policyId: updatedPolicy.id, policyNumber: updatedPolicy.policyNumber, status: updatedPolicy.status },
+            });
+
+            return resPolicy;
         });
 
         return result;
@@ -464,10 +509,23 @@ export class PolicyService {
                 where: { policyId: id, ...ownerFilter(userId, role) }
             });
 
-            return tx.policy.update({
+            const deletedPolicy = await tx.policy.update({
                 where: { id },
                 data: { deletedAt: now }
             });
+
+            ActivityService.logActivity({
+                userId,
+                userRole: role,
+                action: 'DELETE',
+                entityType: 'policy',
+                entityId: id,
+                title: `Policy Deleted: ${deletedPolicy.policyNumber || 'Draft'}`,
+                description: `Soft deleted policy ${deletedPolicy.policyNumber || 'Draft'} and related records`,
+                metadata: { policyId: id, policyNumber: deletedPolicy.policyNumber },
+            });
+
+            return deletedPolicy;
         });
     }
 
@@ -550,6 +608,8 @@ export class PolicyService {
                     policyOrigin: 'in_system_renewal',
                     ncbPercentage: data.ncbPercentage ?? null,
                     dealerId: data.dealerId || originalPolicy.dealerId,
+                    tpStartDate: data.tpStartDate ? new Date(data.tpStartDate) : (originalPolicy.tpStartDate ? new Date(originalPolicy.tpStartDate) : null),
+                    tpEndDate: data.tpEndDate ? new Date(data.tpEndDate) : (originalPolicy.tpEndDate ? new Date(originalPolicy.tpEndDate) : null),
                     createdBy: role,
                     updatedBy: role,
                 },
@@ -580,28 +640,17 @@ export class PolicyService {
                     }
                 });
             } else if (paidAmount > 0.01) {
-                // Scenario 2: Partial Payment at renewal
+                // Scenario 2: Partial Payment at renewal (Single partial payment record)
                 await tx.payment.create({
                     data: {
                         userId,
                         policyId: renewedPolicy.id,
                         customerId: originalPolicy.customerId,
-                        amount: paidAmount,
+                        amount: fullPremium,
                         paidAmount: paidAmount,
                         paidDate: new Date(),
                         dueDate: renewedPolicy.startDate,
-                        status: 'paid',
-                        createdBy: role,
-                    }
-                });
-                await tx.payment.create({
-                    data: {
-                        userId,
-                        policyId: renewedPolicy.id,
-                        customerId: originalPolicy.customerId,
-                        amount: fullPremium - paidAmount,
-                        dueDate: renewedPolicy.startDate,
-                        status: 'pending',
+                        status: 'partial',
                         createdBy: role,
                     }
                 });
@@ -619,6 +668,17 @@ export class PolicyService {
                     }
                 });
             }
+
+            ActivityService.logActivity({
+                userId,
+                userRole: role,
+                action: 'UPDATE',
+                entityType: 'policy',
+                entityId: renewedPolicy.id,
+                title: `Policy Renewed: ${renewedPolicy.policyNumber || 'Draft'}`,
+                description: `Policy renewed from parent policy ID ${id}`,
+                metadata: { policyId: renewedPolicy.id, parentPolicyId: id, policyNumber: renewedPolicy.policyNumber },
+            });
 
             return renewedPolicy;
         });

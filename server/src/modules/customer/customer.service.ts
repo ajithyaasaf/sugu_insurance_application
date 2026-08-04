@@ -2,6 +2,7 @@ import prisma from '../../utils/prisma';
 import { Prisma } from '@prisma/client';
 import { mapPolicyStatus } from '../../utils/date';
 import { ownerFilter } from '../../utils/rbac';
+import { ActivityService } from '../activity/activity.service';
 
 interface CreateCustomerInput {
     name: string;
@@ -41,6 +42,17 @@ export class CustomerService {
 
         const customer = await prisma.customer.create({
             data: { userId, ...data, createdBy: role, updatedBy: role },
+        });
+
+        ActivityService.logActivity({
+            userId,
+            userRole: role,
+            action: 'CREATE',
+            entityType: 'customer',
+            entityId: customer.id,
+            title: `New Customer Added: ${customer.name}`,
+            description: `Customer account created for ${customer.name} (${customer.phone || 'No phone'})`,
+            metadata: { customerId: customer.id, name: customer.name, phone: customer.phone, email: customer.email },
         });
 
         return { customer };
@@ -94,15 +106,15 @@ export class CustomerService {
     }
 
     async update(userId: string, role: string, id: string, data: Partial<CreateCustomerInput>) {
-        const customer = await this.findById(userId, role, id);
+        const existingCustomer = await this.findById(userId, role, id);
 
         // Clean up empty strings from frontend
         if (data.dob === '') data.dob = null;
         if (data.phone === '') data.phone = undefined;
         if (data.email === '') data.email = undefined;
 
-        const nameToVerify = data.name !== undefined ? data.name : customer.name;
-        const phoneToVerify = data.phone !== undefined ? data.phone : customer.phone;
+        const nameToVerify = data.name !== undefined ? data.name : existingCustomer.name;
+        const phoneToVerify = data.phone !== undefined ? data.phone : existingCustomer.phone;
 
         // Check duplicate name and phone number combination (excluding current customer) (Block)
         if (phoneToVerify && nameToVerify) {
@@ -121,7 +133,20 @@ export class CustomerService {
             }
         }
 
-        return prisma.customer.update({ where: { id }, data: { ...data, updatedBy: role } });
+        const customer = await prisma.customer.update({ where: { id }, data: { ...data, updatedBy: role } });
+
+        ActivityService.logActivity({
+            userId,
+            userRole: role,
+            action: 'UPDATE',
+            entityType: 'customer',
+            entityId: customer.id,
+            title: `Customer Updated: ${customer.name}`,
+            description: `Updated customer information for ${customer.name}`,
+            metadata: { customerId: customer.id, name: customer.name },
+        });
+
+        return customer;
     }
 
     async checkDuplicate(userId: string, role: string, query: { name?: string; phone?: string; excludeId?: string }) {
@@ -172,10 +197,23 @@ export class CustomerService {
             }
 
             // 4. Soft delete the customer
-            return tx.customer.update({
+            const deletedCustomer = await tx.customer.update({
                 where: { id },
                 data: { deletedAt: now }
             });
+
+            ActivityService.logActivity({
+                userId,
+                userRole: role,
+                action: 'DELETE',
+                entityType: 'customer',
+                entityId: id,
+                title: `Customer Deleted: ${deletedCustomer.name}`,
+                description: `Soft deleted customer ${deletedCustomer.name} and linked records`,
+                metadata: { customerId: id, name: deletedCustomer.name },
+            });
+
+            return deletedCustomer;
         });
     }
 }

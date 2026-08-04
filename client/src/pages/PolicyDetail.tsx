@@ -189,7 +189,7 @@ const PolicyDetail: React.FC = () => {
                             )}
                         </div>
 
-                        {policy.policyType === 'motor' && (policy.make || policy.model || policy.vehicleClass || policy.paymentMethod) && (
+                        {(policy.policyType === 'motor' || policy.vehicleClass) && (policy.make || policy.model || policy.vehicleClass || policy.paymentMethod) && (
                             <div className="pt-4 border-t border-surface-100 grid grid-cols-2 sm:grid-cols-4 gap-4">
                                 {policy.make && <div>
                                     <p className="text-xs text-surface-500 mb-1">Make</p>
@@ -218,6 +218,10 @@ const PolicyDetail: React.FC = () => {
                         <div className="pt-4 border-t border-surface-100">
                             <h3 className="text-[10px] font-bold text-surface-400 uppercase tracking-widest mb-3">Premium Breakdown</h3>
                             <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+                                {policy.sumInsured > 0 && <div>
+                                    <p className="text-xs text-surface-500 mb-1">Sum Insured</p>
+                                    <p className="text-sm font-medium text-surface-900">{formatCurrency(policy.sumInsured)}</p>
+                                </div>}
                                 {policy.idv > 0 && <div>
                                     <p className="text-xs text-surface-500 mb-1">IDV</p>
                                     <p className="text-sm font-medium text-surface-900">{formatCurrency(policy.idv)}</p>
@@ -250,14 +254,33 @@ const PolicyDetail: React.FC = () => {
                                 <p className="text-xs text-surface-500 mb-1">Total Premium</p>
                                 <p className="text-lg font-black text-primary-600">{formatCurrency(policy.totalPremium || policy.premiumAmount)}</p>
                             </div>
-                            <div>
-                                <p className="text-xs text-surface-500 mb-1">Start Date</p>
-                                <p className="text-sm font-medium text-surface-900">{formatDate(policy.startDate)}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs text-surface-500 mb-1">Expiry Date</p>
-                                <p className="text-sm font-medium text-surface-900">{formatDate(policy.expiryDate)}</p>
-                            </div>
+                            {(() => {
+                                const isSaod = policy.vehicleClass === 'SAOD_TW' || policy.vehicleClass === 'SAOD_PVT';
+                                return (
+                                    <>
+                                        <div>
+                                            <p className="text-xs text-surface-500 mb-1">{isSaod ? 'OD Start Date' : 'Start Date'}</p>
+                                            <p className="text-sm font-medium text-surface-900">{formatDate(policy.startDate)}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-surface-500 mb-1">{isSaod ? 'OD End Date' : 'Expiry Date'}</p>
+                                            <p className="text-sm font-medium text-surface-900">{formatDate(policy.expiryDate)}</p>
+                                        </div>
+                                        {isSaod && policy.tpStartDate && (
+                                            <div>
+                                                <p className="text-xs text-surface-500 mb-1">TP Start Date</p>
+                                                <p className="text-sm font-medium text-surface-900">{formatDate(policy.tpStartDate)}</p>
+                                            </div>
+                                        )}
+                                        {isSaod && policy.tpEndDate && (
+                                            <div>
+                                                <p className="text-xs text-surface-500 mb-1">TP End Date</p>
+                                                <p className="text-sm font-medium text-surface-900">{formatDate(policy.tpEndDate)}</p>
+                                            </div>
+                                        )}
+                                    </>
+                                );
+                            })()}
                         </div>
                     </div>
 
@@ -281,7 +304,9 @@ const PolicyDetail: React.FC = () => {
                                                     <p className="text-xs font-bold text-surface-400">PREVIOUS POLICY</p>
                                                     <span className="text-[10px] px-1.5 py-0.5 bg-surface-200 text-surface-600 rounded capitalize">{policy.parentPolicy.status}</span>
                                                 </div>
-                                                <p className="text-sm font-medium text-surface-900">{policy.parentPolicy.policyNumber || 'No Number'}</p>
+                                                <p className="text-sm font-medium text-surface-900">
+                                                    {policy.parentPolicy.company?.name ? `${policy.parentPolicy.company.name} — ` : ''}{policy.parentPolicy.policyNumber || 'No Number'}
+                                                </p>
                                                 <p className="text-xs text-surface-500">{formatDate(policy.parentPolicy.startDate)} - {formatDate(policy.parentPolicy.expiryDate)}</p>
                                             </div>
                                         </div>
@@ -298,7 +323,9 @@ const PolicyDetail: React.FC = () => {
                                                 <p className="text-xs font-bold text-primary-600">CURRENT POLICY</p>
                                                 <span className={getStatusColor(policy.status)}>{policy.status}</span>
                                             </div>
-                                            <p className="text-sm font-medium text-surface-900">{policy.policyNumber || 'No Number'}</p>
+                                            <p className="text-sm font-medium text-surface-900">
+                                                {policy.company?.name ? `${policy.company.name} — ` : ''}{policy.policyNumber || 'No Number'}
+                                            </p>
                                             <p className="text-xs text-surface-500">{formatDate(policy.startDate)} - {formatDate(policy.expiryDate)}</p>
                                         </div>
                                     </div>
@@ -316,7 +343,9 @@ const PolicyDetail: React.FC = () => {
                                                     <p className="text-xs font-bold text-emerald-600 uppercase">RENEWED TO</p>
                                                     <span className={getStatusColor(renewal.status)}>{renewal.status}</span>
                                                 </div>
-                                                <p className="text-sm font-medium text-surface-900">{renewal.policyNumber || 'No Number'}</p>
+                                                <p className="text-sm font-medium text-surface-900">
+                                                    {renewal.company?.name ? `${renewal.company.name} — ` : ''}{renewal.policyNumber || 'No Number'}
+                                                </p>
                                                 <p className="text-xs text-surface-500">{formatDate(renewal.startDate)} - {formatDate(renewal.expiryDate)}</p>
                                             </div>
                                         </div>
@@ -397,12 +426,24 @@ const PolicyDetail: React.FC = () => {
                             <h3 className="text-sm font-bold text-surface-900">Timeline</h3>
                         </div>
                         <div className="space-y-4">
-                            <div>
-                                <p className="text-xs text-surface-500">Days Left</p>
-                                <p className={`text-xl font-bold ${daysUntil(policy.expiryDate) <= 30 ? 'text-red-600' : 'text-surface-900'}`}>
-                                    {daysUntil(policy.expiryDate)} <span className="text-xs font-normal">days until expiry</span>
-                                </p>
-                            </div>
+                            {(() => {
+                                const isSaod = policy.vehicleClass === 'SAOD_TW' || policy.vehicleClass === 'SAOD_PVT';
+                                const odDays = daysUntil(policy.expiryDate);
+                                const tpDays = isSaod && policy.tpEndDate ? daysUntil(policy.tpEndDate) : 9999;
+                                const minDays = isSaod && policy.tpEndDate ? Math.min(odDays, tpDays) : odDays;
+                                const isTpSoonest = isSaod && policy.tpEndDate && tpDays < odDays;
+
+                                return (
+                                    <div>
+                                        <p className="text-xs text-surface-500">
+                                            {isSaod && policy.tpEndDate ? (isTpSoonest ? 'Days Left (TP Cover)' : 'Days Left (OD Cover)') : 'Days Left'}
+                                        </p>
+                                        <p className={`text-xl font-bold ${minDays <= 30 ? 'text-red-600' : 'text-surface-900'}`}>
+                                            {minDays} <span className="text-xs font-normal">days until expiry</span>
+                                        </p>
+                                    </div>
+                                );
+                            })()}
                             <div>
                                 <p className="text-xs text-surface-500">Created</p>
                                 <p className="text-sm text-surface-700">{formatDate(policy.createdAt)} by {policy.createdBy}</p>

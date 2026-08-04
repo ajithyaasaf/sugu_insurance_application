@@ -8,7 +8,9 @@ interface ExpiringPolicy {
     policyNumber: string;
     vehicleNumber: string;
     expiryDate: string;
+    tpEndDate?: string | null;
     daysRemaining: number;
+    isTpExpiringSoon?: boolean;
     customer: {
         name: string;
     };
@@ -46,8 +48,14 @@ const ExpiringBanner: React.FC = () => {
                 if (res.data && res.data.data) {
                     const mapped: ExpiringPolicy[] = res.data.data
                         .map((p: any) => {
-                            const days = getDaysRemaining(p.expiryDate);
-                            return { ...p, daysRemaining: days };
+                            const odDays = getDaysRemaining(p.expiryDate);
+                            const tpDays = p.tpEndDate ? getDaysRemaining(p.tpEndDate) : 9999;
+                            const isTpUrgent = tpDays < odDays;
+                            return { 
+                                ...p, 
+                                daysRemaining: isTpUrgent ? tpDays : odDays,
+                                isTpExpiringSoon: isTpUrgent
+                            };
                         })
                         .filter((p: any) => p.daysRemaining >= 0 && p.daysRemaining <= 7)
                         // Sort by urgency: today first, then tomorrow, then upcoming
@@ -124,7 +132,7 @@ const ExpiringBanner: React.FC = () => {
                         {label}
                     </span>
                     <p className="truncate font-medium text-xs sm:text-sm">
-                        Policy <span className="font-mono bg-black/10 px-1 py-0.5 rounded">{current.policyNumber}</span> for <span className="font-bold">{current.customer?.name}</span> 
+                        {current.isTpExpiringSoon ? 'TP Cover' : 'OD Cover'} for Policy <span className="font-mono bg-black/10 px-1 py-0.5 rounded">{current.policyNumber}</span> for <span className="font-bold">{current.customer?.name}</span> 
                         {current.vehicleNumber && current.vehicleNumber !== '—' && ` (${current.vehicleNumber})`} 
                         {current.daysRemaining === 0 ? " expires today!" : current.daysRemaining === 1 ? " expires tomorrow!" : ` expires in ${current.daysRemaining} days.`}
                     </p>

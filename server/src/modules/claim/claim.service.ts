@@ -1,5 +1,6 @@
 import prisma from '../../utils/prisma';
 import { ownerFilter } from '../../utils/rbac';
+import { ActivityService } from '../activity/activity.service';
 
 interface CreateClaimInput {
     policyId: string;
@@ -35,7 +36,7 @@ export class ClaimService {
             );
         }
 
-        return prisma.claim.create({
+        const claim = await prisma.claim.create({
             data: {
                 userId,
                 policyId: data.policyId,
@@ -54,6 +55,24 @@ export class ClaimService {
             },
             include: { customer: true, policy: true },
         });
+
+        ActivityService.logActivity({
+            userId,
+            userRole: role,
+            action: 'CLAIM_FILED',
+            entityType: 'claim',
+            entityId: claim.id,
+            title: `Claim Filed: ${claim.claimNumber || 'New Claim'}`,
+            description: `Claim filed for ${claim.customer?.name || 'Customer'} (Status: ${claim.status})`,
+            metadata: {
+                claimId: claim.id,
+                claimNumber: claim.claimNumber,
+                claimAmount: claim.claimAmount,
+                status: claim.status,
+            },
+        });
+
+        return claim;
     }
 
     async findAll(userId: string, role: string, page = 1, limit = 10, search?: string, status?: string, vehicleClass?: string) {
@@ -107,7 +126,7 @@ export class ClaimService {
 
     async update(userId: string, role: string, id: string, data: Partial<CreateClaimInput>) {
         await this.findById(userId, role, id); // ownership check
-        return prisma.claim.update({
+        const claim = await prisma.claim.update({
             where: { id },
             data: {
                 ...(data.claimNumber !== undefined && { claimNumber: data.claimNumber }),
@@ -123,11 +142,38 @@ export class ClaimService {
             },
             include: { customer: true, policy: true },
         });
+
+        ActivityService.logActivity({
+            userId,
+            userRole: role,
+            action: 'UPDATE',
+            entityType: 'claim',
+            entityId: claim.id,
+            title: `Claim Updated: ${claim.claimNumber || 'Claim'}`,
+            description: `Claim updated for ${claim.customer?.name || 'Customer'} (Status: ${claim.status})`,
+            metadata: { claimId: claim.id, claimNumber: claim.claimNumber, status: claim.status },
+        });
+
+        return claim;
     }
 
     async delete(userId: string, role: string, id: string) {
         await this.findById(userId, role, id); // ownership check
-        return prisma.claim.delete({ where: { id } });
+        
+        const claim = await prisma.claim.delete({ where: { id } });
+
+        ActivityService.logActivity({
+            userId,
+            userRole: role,
+            action: 'DELETE',
+            entityType: 'claim',
+            entityId: id,
+            title: `Claim Deleted: ${claim.claimNumber || 'Claim'}`,
+            description: `Deleted claim record ${claim.claimNumber || 'Claim'}`,
+            metadata: { claimId: id, claimNumber: claim.claimNumber },
+        });
+
+        return claim;
     }
 }
 

@@ -15,6 +15,8 @@ import {
     HiOutlineTrendingUp,
     HiOutlineChartBar,
     HiOutlineCalculator,
+    HiOutlineClock,
+    HiOutlineTag,
 } from 'react-icons/hi';
 
 import GlobalSearch from '../components/ui/GlobalSearch';
@@ -22,6 +24,7 @@ import ExpiringBanner from '../components/ui/ExpiringBanner';
 
 const navItems = [
     { to: '/', icon: HiOutlineViewGrid, label: 'Dashboard' },
+    // { to: '/activities', icon: HiOutlineClock, label: 'Activity Log' }, // Hidden until launch next week
     { to: '/leads', icon: HiOutlineTrendingUp, label: 'Leads' },
     { to: '/customers', icon: HiOutlineUsers, label: 'Customers' },
     { to: '/policies', icon: HiOutlineDocumentText, label: 'Policies' },
@@ -29,6 +32,7 @@ const navItems = [
     { to: '/claims', icon: HiOutlineShieldCheck, label: 'Claims' },
     { to: '/follow-ups', icon: HiOutlinePhone, label: 'Follow-ups' },
     { to: '/dealers', icon: HiOutlineUserGroup, label: 'Dealers' },
+    // { to: '/offers', icon: HiOutlineTag, label: 'Offers' },
     { to: '/commissions', icon: HiOutlineCalculator, label: 'Commissions' },
     { to: '/reports', icon: HiOutlineChartBar, label: 'Reports' },
 ];
@@ -84,7 +88,7 @@ const AppLayout: React.FC = () => {
                         {navItems
                             .filter(item => {
                                 if (user?.role === 'staff') {
-                                    return !['/commissions'].includes(item.to);
+                                    return !['/commissions', '/offers'].includes(item.to);
                                 }
                                 return true;
                             })
@@ -141,7 +145,7 @@ const AppLayout: React.FC = () => {
 
             {/* Main content */}
             <div className="flex-1 flex flex-col overflow-hidden">
-                {/* <ExpiringBanner /> */}
+                <ExpiringBanner />
                 {/* Top bar */}
                 <header className="flex items-center justify-between px-4 sm:px-6 py-3 bg-white border-b border-surface-200">
                     <div className="flex items-center gap-4 lg:gap-0">

@@ -25,6 +25,14 @@ export class ReportController {
         } catch (e: any) { next(e); }
     }
 
+    // GET /api/reports/financial-years
+    async financialYears(req: Request, res: Response, next: NextFunction) {
+        try {
+            const data = await reportService.getFinancialYears(req.user!.userId, req.user!.role);
+            sendSuccess({ res, statusCode: 200, message: 'Financial years', data });
+        } catch (e: any) { next(e); }
+    }
+
     // POST /api/reports/export
     async exportReport(req: Request, res: Response, next: NextFunction) {
         try {

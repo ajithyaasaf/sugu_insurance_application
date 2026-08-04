@@ -12,11 +12,14 @@ import { PAYMENT_STATUSES as statusOptions, VEHICLE_CLASSES } from '../utils/con
 import Button from '../components/ui/Button';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { useAuth } from '../context/AuthContext';
 
 
 
 
 const Payments: React.FC = () => {
+    const { user } = useAuth();
+    const isStaff = user?.role === 'staff';
     const [payments, setPayments] = useState<any[]>([]);
     const [customers, setCustomers] = useState<any[]>([]);
     const [policies, setPolicies] = useState<any[]>([]);
@@ -267,9 +270,11 @@ const Payments: React.FC = () => {
             <div className="page-header">
                 <h1 className="page-title">Payments</h1>
                 <div className="flex gap-2">
-                    <Button onClick={exportPDF} className="btn-secondary flex items-center gap-1">
-                        <HiOutlineDocumentDownload className="w-4 h-4" /> Export PDF
-                    </Button>
+                    {!isStaff && (
+                        <Button onClick={exportPDF} className="btn-secondary flex items-center gap-1">
+                            <HiOutlineDocumentDownload className="w-4 h-4" /> Export PDF
+                        </Button>
+                    )}
                     <Button onClick={handleDetectOverdue} isLoading={isDetecting} className="btn-secondary text-amber-600">Detect Overdue</Button>
                     <button onClick={openCreate} className="btn-primary"><HiOutlinePlus className="w-4 h-4" /> Add Payment</button>
                 </div>

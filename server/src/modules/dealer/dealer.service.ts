@@ -1,5 +1,6 @@
 import prisma from '../../utils/prisma';
 import { ownerFilter } from '../../utils/rbac';
+import { ActivityService } from '../activity/activity.service';
 
 interface CreateDealerInput {
     name: string;
@@ -9,7 +10,7 @@ interface CreateDealerInput {
 
 export class DealerService {
     async create(userId: string, role: string, data: CreateDealerInput) {
-        return prisma.dealer.create({
+        const dealer = await prisma.dealer.create({
             data: {
                 ...data,
                 userId,
@@ -17,6 +18,19 @@ export class DealerService {
                 updatedBy: role,
             },
         });
+
+        ActivityService.logActivity({
+            userId,
+            userRole: role,
+            action: 'CREATE',
+            entityType: 'dealer',
+            entityId: dealer.id,
+            title: `New Dealer Added: ${dealer.name}`,
+            description: `Dealer account registered (${dealer.phone || 'No phone'})`,
+            metadata: { dealerId: dealer.id, name: dealer.name },
+        });
+
+        return dealer;
     }
 
     async findAll(userId: string, role: string, page = 1, limit = 10, search?: string) {

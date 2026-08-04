@@ -1,5 +1,5 @@
 import prisma from '../../utils/prisma';
-import { buildStatusFilter, getStartOfTodayIST } from '../../utils/date';
+import { buildStatusFilter, getStartOfTodayIST, mapPolicyStatus } from '../../utils/date';
 import { ownerFilter } from '../../utils/rbac';
 
 export class DashboardService {
@@ -12,13 +12,16 @@ export class DashboardService {
         const sevenDaysFromNow = new Date(todayStart.getTime() + 7 * 24 * 60 * 60 * 1000);
 
         const results = await Promise.all([
-            // 0: Policies expiring in next 30 days
+            // 0: Policies expiring in next 30 days (OD or TP)
             prisma.policy.findMany({
                 where: {
                     ...ow,
                     deletedAt: null,
-                    ...buildStatusFilter('active'),
-                    expiryDate: { gte: now, lte: thirtyDaysFromNow },
+                    status: 'active',
+                    OR: [
+                        { expiryDate: { gte: todayStart, lte: thirtyDaysFromNow } },
+                        { tpEndDate: { gte: todayStart, lte: thirtyDaysFromNow } }
+                    ]
                 } as any,
                 include: { customer: true, company: true },
                 orderBy: { expiryDate: 'asc' },
@@ -29,8 +32,11 @@ export class DashboardService {
                 where: {
                     ...ow,
                     deletedAt: null,
-                    ...buildStatusFilter('active'),
-                    expiryDate: { gte: now, lte: thirtyDaysFromNow },
+                    status: 'active',
+                    OR: [
+                        { expiryDate: { gte: todayStart, lte: thirtyDaysFromNow } },
+                        { tpEndDate: { gte: todayStart, lte: thirtyDaysFromNow } }
+                    ]
                 } as any,
             }),
 
@@ -155,6 +161,27 @@ export class DashboardService {
                 _count: { _all: true },
                 _sum: { premiumAmount: true, totalPremium: true },
             }),
+            // 17: Recently expired policies
+            prisma.policy.findMany({
+                where: {
+                    ...ow,
+                    deletedAt: null,
+                    ...buildStatusFilter('expired'),
+                    renewals: { none: { deletedAt: null } },
+                } as any,
+                include: { customer: true, company: true },
+                orderBy: { expiryDate: 'desc' },
+                take: 10,
+            }),
+            // 18: Count of expired policies
+            prisma.policy.count({
+                where: {
+                    ...ow,
+                    deletedAt: null,
+                    ...buildStatusFilter('expired'),
+                    renewals: { none: { deletedAt: null } },
+                } as any,
+            }),
         ]);
 
         const expiringPolicies = results[0] as any[];
@@ -174,6 +201,8 @@ export class DashboardService {
         const todayLeadFollowUpsCount = results[14] as number;
         const allBirthdayCandidates = results[15] as any[];
         const vehicleClassGrouping = results[16] as any[];
+        const expiredPolicies = results[17] as any[];
+        const expiredPoliciesCount = results[18] as number;
 
         // Get current month and date in IST (0-indexed month)
         const istParts = new Intl.DateTimeFormat('en-US', {
@@ -241,8 +270,10 @@ export class DashboardService {
                 pendingPaymentsCount,
                 overduePaymentsCount,
                 todayBirthdaysCount: todayBirthdays.length,
+                expiredPoliciesCount,
             },
-            expiringPolicies,
+            expiringPolicies: expiringPolicies.map(mapPolicyStatus),
+            expiredPolicies: expiredPolicies.map(mapPolicyStatus),
             todayFollowUps: combinedFollowUps,
             pendingPayments,
             overduePayments,

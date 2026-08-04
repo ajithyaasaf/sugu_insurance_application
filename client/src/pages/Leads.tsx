@@ -34,7 +34,8 @@ const Leads: React.FC = () => {
         name: '', phone: '', interestedProduct: '', status: 'new', nextFollowUpDate: '', notes: '',
         policyType: '', companyId: '', vehicleNumber: '', make: '', model: '', vehicleClass: '',
         idv: '', od: '', tp: '', tax: '', totalPremium: '', premiumAmount: '', startDate: '', expiryDate: '',
-        dealerId: '', registrationDate: '', policyOrigin: 'fresh', ncbPercentage: ''
+        dealerId: '', registrationDate: '', policyOrigin: 'fresh', ncbPercentage: '',
+        tpStartDate: '', tpEndDate: ''
     };
     const [form, setForm] = useState(initialFormState);
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -53,6 +54,8 @@ const Leads: React.FC = () => {
         make: '',
         model: '',
         vehicleClass: '',
+        tpStartDate: '',
+        tpEndDate: '',
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isConverting, setIsConverting] = useState(false);
@@ -146,7 +149,9 @@ const Leads: React.FC = () => {
             startDate: lead.startDate?.split('T')[0] || '', expiryDate: lead.expiryDate?.split('T')[0] || '',
             dealerId: lead.dealerId || '', registrationDate: lead.registrationDate?.split('T')[0] || '',
             policyOrigin: lead.policyOrigin || 'fresh',
-            ncbPercentage: lead.ncbPercentage !== null && lead.ncbPercentage !== undefined ? lead.ncbPercentage.toString() : ''
+            ncbPercentage: lead.ncbPercentage !== null && lead.ncbPercentage !== undefined ? lead.ncbPercentage.toString() : '',
+            tpStartDate: lead.tpStartDate?.split('T')[0] || '',
+            tpEndDate: lead.tpEndDate?.split('T')[0] || ''
         });
         setModalOpen(true);
     };
@@ -174,6 +179,8 @@ const Leads: React.FC = () => {
                 vehicleClass: form.vehicleClass || undefined,
                 startDate: form.startDate || undefined,
                 expiryDate: form.expiryDate || undefined,
+                tpStartDate: (form.vehicleClass === 'SAOD_TW' || form.vehicleClass === 'SAOD_PVT') && form.tpStartDate ? form.tpStartDate : null,
+                tpEndDate: (form.vehicleClass === 'SAOD_TW' || form.vehicleClass === 'SAOD_PVT') && form.tpEndDate ? form.tpEndDate : null,
                 dealerId: form.dealerId || undefined,
                 idv: form.idv ? parseFloat(form.idv) : undefined,
                 od: form.od ? parseFloat(form.od) : undefined,
@@ -236,6 +243,8 @@ const Leads: React.FC = () => {
             make: lead.make || '',
             model: lead.model || '',
             vehicleClass: lead.vehicleClass || '',
+            tpStartDate: lead.tpStartDate?.split('T')[0] || '',
+            tpEndDate: lead.tpEndDate?.split('T')[0] || '',
         });
         setErrors({});
         setConvertModalOpen(true);
@@ -281,11 +290,15 @@ const Leads: React.FC = () => {
 
         setIsConverting(true);
         try {
+            const finalClass = convertingLead?.vehicleClass || convertForm.vehicleClass;
+            const isSaod = finalClass === 'SAOD_TW' || finalClass === 'SAOD_PVT';
             const payload = {
                 address: convertForm.address || undefined,
                 email: convertForm.email || undefined,
                 policyOrigin: convertForm.policyOrigin,
                 ncbPercentage: convertForm.ncbPercentage ? parseFloat(convertForm.ncbPercentage) : undefined,
+                tpStartDate: isSaod ? (convertingLead?.tpStartDate || convertForm.tpStartDate || null) : null,
+                tpEndDate: isSaod ? (convertingLead?.tpEndDate || convertForm.tpEndDate || null) : null,
                 
                 // Dynamically append any missing details provided inline in the modal
                 ...(!convertingLead?.policyType && { policyType: convertForm.policyType }),
@@ -548,7 +561,9 @@ const Leads: React.FC = () => {
                                             options={[
                                                 { value: 'motor', label: 'Motor' },
                                                 { value: 'health', label: 'Health' },
-                                                { value: 'life', label: 'Life' }
+                                                { value: 'life', label: 'Life' },
+                                                { value: 'non_motor', label: 'Non Motor' },
+                                                { value: 'other', label: 'Other' }
                                             ]}
                                             value={convertForm.policyType}
                                             onChange={(val) => {
@@ -627,37 +642,73 @@ const Leads: React.FC = () => {
                                     </div>
                                 )}
 
-                                {!convertingLead?.startDate && (
-                                    <div>
-                                        <label className="label">Start Date *</label>
-                                        <input
-                                            type="date"
-                                            className={`input ${errors.startDate ? 'border-red-500 focus:ring-red-400' : ''}`}
-                                            value={convertForm.startDate}
-                                            onChange={(e) => {
-                                                setConvertForm(prev => ({ ...prev, startDate: e.target.value }));
-                                                setErrors(prev => ({ ...prev, startDate: '' }));
-                                            }}
-                                        />
-                                        {errors.startDate && <p className="text-xs text-red-500 mt-1">{errors.startDate}</p>}
-                                    </div>
-                                )}
+                                {(() => {
+                                    const finalClass = convertingLead?.vehicleClass || convertForm.vehicleClass;
+                                    const isSaod = finalClass === 'SAOD_TW' || finalClass === 'SAOD_PVT';
+                                    return (
+                                        <>
+                                            {!convertingLead?.startDate && (
+                                                <div>
+                                                    <label className="label">{isSaod ? 'OD Start Date *' : 'Start Date *'}</label>
+                                                    <input
+                                                        type="date"
+                                                        className={`input ${errors.startDate ? 'border-red-500 focus:ring-red-400' : ''}`}
+                                                        value={convertForm.startDate}
+                                                        onChange={(e) => {
+                                                            setConvertForm(prev => ({ ...prev, startDate: e.target.value }));
+                                                            setErrors(prev => ({ ...prev, startDate: '' }));
+                                                        }}
+                                                    />
+                                                    {errors.startDate && <p className="text-xs text-red-500 mt-1">{errors.startDate}</p>}
+                                                </div>
+                                            )}
 
-                                {!convertingLead?.expiryDate && (
-                                    <div>
-                                        <label className="label">Expiry Date *</label>
-                                        <input
-                                            type="date"
-                                            className={`input ${errors.expiryDate ? 'border-red-500 focus:ring-red-400' : ''}`}
-                                            value={convertForm.expiryDate}
-                                            onChange={(e) => {
-                                                setConvertForm(prev => ({ ...prev, expiryDate: e.target.value }));
-                                                setErrors(prev => ({ ...prev, expiryDate: '' }));
-                                            }}
-                                        />
-                                        {errors.expiryDate && <p className="text-xs text-red-500 mt-1">{errors.expiryDate}</p>}
-                                    </div>
-                                )}
+                                            {!convertingLead?.expiryDate && (
+                                                <div>
+                                                    <label className="label">{isSaod ? 'OD End Date *' : 'Expiry Date *'}</label>
+                                                    <input
+                                                        type="date"
+                                                        className={`input ${errors.expiryDate ? 'border-red-500 focus:ring-red-400' : ''}`}
+                                                        value={convertForm.expiryDate}
+                                                        onChange={(e) => {
+                                                            setConvertForm(prev => ({ ...prev, expiryDate: e.target.value }));
+                                                            setErrors(prev => ({ ...prev, expiryDate: '' }));
+                                                        }}
+                                                    />
+                                                    {errors.expiryDate && <p className="text-xs text-red-500 mt-1">{errors.expiryDate}</p>}
+                                                </div>
+                                            )}
+
+                                            {isSaod && !convertingLead?.tpStartDate && (
+                                                <div>
+                                                    <label className="label">TP Start Date</label>
+                                                    <input
+                                                        type="date"
+                                                        className="input"
+                                                        value={convertForm.tpStartDate}
+                                                        onChange={(e) => {
+                                                            setConvertForm(prev => ({ ...prev, tpStartDate: e.target.value }));
+                                                        }}
+                                                    />
+                                                </div>
+                                            )}
+
+                                            {isSaod && !convertingLead?.tpEndDate && (
+                                                <div>
+                                                    <label className="label">TP End Date</label>
+                                                    <input
+                                                        type="date"
+                                                        className="input"
+                                                        value={convertForm.tpEndDate}
+                                                        onChange={(e) => {
+                                                            setConvertForm(prev => ({ ...prev, tpEndDate: e.target.value }));
+                                                        }}
+                                                    />
+                                                </div>
+                                            )}
+                                        </>
+                                    );
+                                })()}
 
                                 {((convertingLead?.policyType || convertForm.policyType) === 'motor') && (
                                     <>

@@ -2,6 +2,7 @@ import prisma from '../../utils/prisma';
 import { getStartOfDayIST, getEndOfDayIST } from '../../utils/date';
 import { CommissionPreviewInput, CommissionCreateInput, CommissionUpdateInput, CommissionBulkUpdateInput } from './commission.schema';
 import { ownerFilter } from '../../utils/rbac';
+import { ActivityService } from '../activity/activity.service';
 
 export class CommissionService {
     /**
@@ -299,7 +300,20 @@ export class CommissionService {
                 });
             }
 
-            return { ...commission, policyCount: preview.policies.length };
+            const resObj = { ...commission, policyCount: preview.policies.length };
+
+            ActivityService.logActivity({
+                userId,
+                userRole: role,
+                action: 'CREATE',
+                entityType: 'commission',
+                entityId: commission.id,
+                title: `Commission Calculated: ₹${commission.totalCommission}`,
+                description: `Commission generated for dealer (${preview.policies.length} policies linked)`,
+                metadata: { commissionId: commission.id, totalCommission: commission.totalCommission, dealerId: data.dealerId },
+            });
+
+            return resObj;
         });
     }
 
