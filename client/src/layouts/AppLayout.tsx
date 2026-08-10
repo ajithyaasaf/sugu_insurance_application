@@ -32,7 +32,7 @@ const navItems = [
     { to: '/claims', icon: HiOutlineShieldCheck, label: 'Claims' },
     { to: '/follow-ups', icon: HiOutlinePhone, label: 'Follow-ups' },
     { to: '/dealers', icon: HiOutlineUserGroup, label: 'Dealers' },
-    { to: '/offers', icon: HiOutlineTag, label: 'Offers' },
+    // { to: '/offers', icon: HiOutlineTag, label: 'Offers' },
     { to: '/commissions', icon: HiOutlineCalculator, label: 'Commissions' },
     { to: '/reports', icon: HiOutlineChartBar, label: 'Reports' },
 ];

@@ -48,7 +48,7 @@ const SOURCE_OPTIONS: { value: Source; label: string; icon: React.ElementType }[
     { value: 'claims', label: 'Claims', icon: HiOutlineDocumentDownload },
     { value: 'customers', label: 'Customers', icon: HiOutlineTable },
     { value: 'followups', label: 'Follow-ups', icon: HiOutlineRefresh },
-    { value: 'offers', label: 'Offers & Discounts', icon: HiOutlineTag },
+    // { value: 'offers', label: 'Offers & Discounts', icon: HiOutlineTag },
     { value: 'customer-snapshot', label: 'Customer Statement', icon: HiOutlineUser },
 ];
 
@@ -345,11 +345,11 @@ const ReportBuilderTab: React.FC = () => {
 
     const statuses = getStatusOptions(source);
     const groupOptions = getGroupOptions(source);
-    const showCompanyFilter = ['policies', 'policies-expired', 'payments', 'claims', 'followups', 'customer-snapshot', 'offers'].includes(source);
-    const showDealerFilter = ['policies', 'policies-expired', 'payments', 'offers'].includes(source);
-    const showCustomerFilter = ['policies', 'policies-expired', 'payments', 'claims', 'followups', 'leads', 'customer-snapshot', 'offers'].includes(source);
-    const showPolicyTypeFilter = ['policies', 'policies-expired', 'payments', 'claims', 'followups', 'customer-snapshot', 'offers'].includes(source);
-    const showVehicleClassFilter = ['policies', 'policies-expired', 'payments', 'claims', 'customer-snapshot', 'offers'].includes(source);
+    const showCompanyFilter = ['policies', 'policies-expired', 'payments', 'claims', 'followups', 'customer-snapshot'].includes(source);
+    const showDealerFilter = ['policies', 'policies-expired', 'payments'].includes(source);
+    const showCustomerFilter = ['policies', 'policies-expired', 'payments', 'claims', 'followups', 'leads', 'customer-snapshot'].includes(source);
+    const showPolicyTypeFilter = ['policies', 'policies-expired', 'payments', 'claims', 'followups', 'customer-snapshot'].includes(source);
+    const showVehicleClassFilter = ['policies', 'policies-expired', 'payments', 'claims', 'customer-snapshot'].includes(source);
     const isSnapshot = source === 'customer-snapshot';
     const hasAdvancedFilters = showCompanyFilter || showCustomerFilter || showDealerFilter || showPolicyTypeFilter || showVehicleClassFilter;
 
