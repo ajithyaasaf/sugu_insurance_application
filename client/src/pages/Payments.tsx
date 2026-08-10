@@ -7,7 +7,7 @@ import TableSkeleton from '../components/ui/TableSkeleton';
 import SearchableSelect from '../components/ui/SearchableSelect';
 import { formatDate, formatCurrency, getStatusColor, scrollToFirstError, formatVehicleClass } from '../utils/format';
 import toast from 'react-hot-toast';
-import { HiOutlinePlus, HiOutlineSearch, HiOutlinePencil, HiOutlineCreditCard, HiOutlineDocumentDownload } from 'react-icons/hi';
+import { HiOutlinePlus, HiOutlineSearch, HiOutlinePencil, HiOutlineCreditCard, HiOutlineDocumentDownload, HiOutlineTag } from 'react-icons/hi';
 import { PAYMENT_STATUSES as statusOptions, VEHICLE_CLASSES } from '../utils/constants';
 import Button from '../components/ui/Button';
 import jsPDF from 'jspdf';
@@ -24,7 +24,7 @@ const Payments: React.FC = () => {
     const [customers, setCustomers] = useState<any[]>([]);
     const [policies, setPolicies] = useState<any[]>([]);
     const [dealers, setDealers] = useState<any[]>([]);
-    const [meta, setMeta] = useState({ page: 1, totalPages: 1, total: 0 });
+    const [meta, setMeta] = useState<{ page: number; totalPages: number; total: number; totalOutstanding?: number }>({ page: 1, totalPages: 1, total: 0, totalOutstanding: 0 });
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
     const [dealerFilter, setDealerFilter] = useState('');
@@ -280,6 +280,24 @@ const Payments: React.FC = () => {
                 </div>
             </div>
 
+            {/* Overall Outstanding KPI Summary Card */}
+            <div className="bg-white rounded-2xl p-4 sm:p-5 border border-surface-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-3.5">
+                    <div className="w-11 h-11 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shrink-0 border border-red-100">
+                        <HiOutlineCreditCard className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <p className="text-xs font-bold text-surface-500 uppercase tracking-wider">Overall Total Outstanding</p>
+                        <p className="text-xl sm:text-2xl font-black text-red-600 tracking-tight mt-0.5">
+                            {formatCurrency(meta.totalOutstanding || 0)}
+                        </p>
+                    </div>
+                </div>
+                <div className="text-xs text-surface-600 bg-surface-50 px-3 py-1.5 rounded-lg border border-surface-200/80 font-semibold">
+                    Across all {meta.total} {meta.total === 1 ? 'record' : 'records'} matching current filters
+                </div>
+            </div>
+
             <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
                 <div className="relative flex-1 min-w-[160px]">
                     <HiOutlineSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
@@ -342,6 +360,9 @@ const Payments: React.FC = () => {
                             <tbody>
                                 {payments.map((p) => {
                                     const outstanding = p.amount - (p.paidAmount || 0);
+                                    const offer = p.policy?.offer;
+                                    const grossPremium = offer?.grossPremium || p.policy?.totalPremium || p.policy?.premiumAmount || p.amount;
+
                                     return (
                                         <tr key={p.id}>
                                             <td className="font-medium text-surface-900">{p.customer?.name}</td>
@@ -355,11 +376,21 @@ const Payments: React.FC = () => {
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="font-medium">{formatCurrency(p.amount)}</td>
+                                            <td className="font-semibold text-surface-900 text-xs">{formatCurrency(grossPremium)}</td>
                                             <td className="text-xs">{formatDate(p.dueDate)}</td>
                                             <td className="text-xs">{p.paidAmount ? formatCurrency(p.paidAmount) : '—'}</td>
-                                            <td className={`font-bold ${outstanding > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                                                {formatCurrency(outstanding)}
+                                            <td className="text-xs">
+                                                <div className="flex flex-col">
+                                                    <span className={`font-bold ${outstanding > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                                                        {formatCurrency(outstanding)}
+                                                    </span>
+                                                    {offer && (
+                                                        <div className="flex items-center gap-1 text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60 mt-0.5 w-max">
+                                                            <HiOutlineTag className="w-3 h-3 text-emerald-600 shrink-0" />
+                                                            <span>-{formatCurrency(offer.offerAmount)} Offer</span>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td>
                                                 <div className="flex items-center gap-2">
@@ -369,7 +400,13 @@ const Payments: React.FC = () => {
                                                     )}
                                                 </div>
                                             </td>
-                                            <td><button onClick={() => openEdit(p)} className="btn-ghost btn-sm"><HiOutlinePencil className="w-3.5 h-3.5" /></button></td>
+                                            <td>
+                                                {!isStaff && (
+                                                    <button onClick={() => openEdit(p)} className="btn-ghost btn-sm" title="Edit Payment">
+                                                        <HiOutlinePencil className="w-3.5 h-3.5" />
+                                                    </button>
+                                                )}
+                                            </td>
                                         </tr>
                                     );
                                 })}
@@ -389,8 +426,11 @@ const Payments: React.FC = () => {
                     <div className="sm:hidden space-y-3">
                         {payments.map((p) => {
                             const outstanding = p.amount - (p.paidAmount || 0);
+                            const offer = p.policy?.offer;
+                            const grossPremium = offer?.grossPremium || p.policy?.totalPremium || p.policy?.premiumAmount || p.amount;
+
                             return (
-                                <div key={p.id} className="card card-body" onClick={() => openEdit(p)}>
+                                <div key={p.id} className="card card-body" onClick={!isStaff ? () => openEdit(p) : undefined}>
                                     <div className="flex justify-between items-start mb-1">
                                         <p className="font-semibold text-surface-900">{p.customer?.name}</p>
                                         <div className="flex items-center gap-2">
@@ -401,13 +441,20 @@ const Payments: React.FC = () => {
                                         </div>
                                     </div>
                                     <p className="text-xs text-surface-500 mb-2">Due: {formatDate(p.dueDate)}</p>
-                                    <div className="flex justify-between text-sm">
-                                        <span>Amount: <strong>{formatCurrency(p.amount)}</strong></span>
-                                        {p.paidAmount && <span className="text-emerald-600">Paid: {formatCurrency(p.paidAmount)}</span>}
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span>Amount: <strong>{formatCurrency(grossPremium)}</strong></span>
+                                        {p.paidAmount ? <span className="text-emerald-600 font-medium">Paid: {formatCurrency(p.paidAmount)}</span> : null}
                                     </div>
                                     {outstanding > 0 && (
                                         <div className="mt-2 pt-2 border-t border-dashed border-surface-200 flex justify-between items-center text-sm">
-                                            <span className="text-surface-500">Outstanding:</span>
+                                            <div className="flex flex-col">
+                                                <span className="text-surface-500 font-medium">Outstanding:</span>
+                                                {offer && (
+                                                    <div className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60 inline-flex items-center gap-1 mt-0.5">
+                                                        <HiOutlineTag className="w-3 h-3 text-emerald-600 shrink-0" /> -{formatCurrency(offer.offerAmount)} Offer
+                                                    </div>
+                                                )}
+                                            </div>
                                             <span className="font-bold text-red-600">{formatCurrency(outstanding)}</span>
                                         </div>
                                     )}

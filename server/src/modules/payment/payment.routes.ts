@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import { paymentController } from './payment.controller';
-import { authenticate } from '../../middleware/auth';
+import { authenticate, authorize } from '../../middleware/auth';
 import { validate } from '../../middleware/validate';
 import { createPaymentSchema, updatePaymentSchema } from './payment.schema';
 
 const router = Router();
-router.use(authenticate);
+router.use(authenticate, authorize(['agent', 'admin']));
 
 router.post('/', validate(createPaymentSchema), (req, res, next) => paymentController.create(req, res, next));
 router.get('/', (req, res, next) => paymentController.findAll(req, res, next));

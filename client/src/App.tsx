@@ -113,7 +113,14 @@ const App: React.FC = () => {
                                 <Route path="/customers" element={<Customers />} />
                                 <Route path="/policies" element={<Policies />} />
                                 <Route path="/policies/:id" element={<PolicyDetail />} />
-                                <Route path="/payments" element={<Payments />} />
+                                <Route
+                                    path="/payments"
+                                    element={
+                                        <RoleProtectedRoute roles={['agent', 'admin']}>
+                                            <Payments />
+                                        </RoleProtectedRoute>
+                                    }
+                                />
                                 <Route path="/claims" element={<Claims />} />
                                 <Route path="/follow-ups" element={<FollowUps />} />
                                 <Route path="/dealers" element={<Dealers />} />
