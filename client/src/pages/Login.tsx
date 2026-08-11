@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { HiOutlineShieldCheck, HiOutlineMail, HiOutlineLockClosed, HiOutlineUser } from 'react-icons/hi';
 import Button from '../components/ui/Button';
-import loginHero from '../assets/login-hero.png';
+import loginHero from '../assets/login-hero 2.png';
 
 const Login: React.FC = () => {
     const { login, register } = useAuth();
