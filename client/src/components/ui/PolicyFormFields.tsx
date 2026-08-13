@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import SearchableSelect from './SearchableSelect';
+import QuickCustomerModal from './QuickCustomerModal';
+import { HiOutlinePlus } from 'react-icons/hi';
 import { POLICY_TYPES, VEHICLE_CLASSES, MOTOR_VEHICLE_CLASSES, NON_MOTOR_VEHICLE_CLASSES, PREMIUM_MODES } from '../../utils/constants';
 import { formatDateInput, formatVehicleClass } from '../../utils/format';
 
@@ -15,12 +17,59 @@ interface PolicyFormFieldsProps {
     parentHadClaim?: boolean;
     errors?: Record<string, string>;
     setErrors?: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+    onCustomerCreated?: (newCustomer: any) => void;
 }
 
-const PolicyFormFields: React.FC<PolicyFormFieldsProps> = ({ form, setForm, companies = [], dealers = [], customers = [], isEditing = false, showQuoteHeader = false, isRenewal = false, parentHadClaim = false, errors = {}, setErrors }) => {
+const PolicyFormFields: React.FC<PolicyFormFieldsProps> = ({ form, setForm, companies = [], dealers = [], customers = [], isEditing = false, showQuoteHeader = false, isRenewal = false, parentHadClaim = false, errors = {}, setErrors, onCustomerCreated }) => {
     const isMotor = form.policyType === 'motor';
     const isNonMotor = form.policyType === 'non_motor';
     const isRequired = !showQuoteHeader;
+
+    const [customerList, setCustomerList] = useState<any[]>(customers);
+    const [quickCustomerModalOpen, setQuickCustomerModalOpen] = useState(false);
+
+    // Payment status selector state — UI-only, does not affect backend contract
+    type PaymentMode = 'pending' | 'partial' | 'paid';
+    const [paymentMode, setPaymentMode] = useState<PaymentMode>('pending');
+
+    useEffect(() => {
+        setCustomerList(customers);
+    }, [customers]);
+
+    // Reset payment mode when switching to a non-create context
+    useEffect(() => {
+        if (!isEditing && !isRenewal) {
+            setPaymentMode('pending');
+            handleChange('paidAmount', '');
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [form.policyType]);
+
+    const fullPremiumValue = parseFloat(form.totalPremium || form.premiumAmount) || 0;
+
+    const handlePaymentModeChange = (mode: PaymentMode) => {
+        setPaymentMode(mode);
+        if (mode === 'paid') {
+            // Auto-fill with the total premium — no manual re-typing needed
+            handleChange('paidAmount', fullPremiumValue > 0 ? String(fullPremiumValue) : '');
+        } else if (mode === 'pending') {
+            handleChange('paidAmount', '');
+        } else {
+            // partial: clear so user enters the exact collected amount
+            handleChange('paidAmount', '');
+        }
+    };
+
+    const handleCustomerCreated = (newCustomer: any) => {
+        setCustomerList(prev => [newCustomer, ...prev.filter(c => c.id !== newCustomer.id)]);
+        handleChange('customerId', newCustomer.id);
+        if (typeof setErrors === 'function') {
+            setErrors((prev: any) => ({ ...prev, customerId: '' }));
+        }
+        if (onCustomerCreated) {
+            onCustomerCreated(newCustomer);
+        }
+    };
 
     const dateError = form.expiryDate && form.startDate && form.expiryDate <= form.startDate
         ? 'Expiry date must be after start date'
@@ -88,11 +137,22 @@ const PolicyFormFields: React.FC<PolicyFormFieldsProps> = ({ form, setForm, comp
                 </div>
             )}
             
-            {customers && customers.length > 0 && (
+            {customers !== undefined && (
                 <div>
-                    <label className="label">Customer *</label>
+                    <div className="flex items-center justify-between mb-1">
+                        <label className="label mb-0">Customer *</label>
+                        {!isEditing && !isRenewal && (
+                            <button
+                                type="button"
+                                onClick={() => setQuickCustomerModalOpen(true)}
+                                className="text-xs font-semibold text-primary-600 hover:text-primary-700 flex items-center gap-1 hover:underline cursor-pointer"
+                            >
+                                <HiOutlinePlus className="w-3.5 h-3.5" /> New Customer
+                            </button>
+                        )}
+                    </div>
                     <SearchableSelect
-                        options={customers.map(c => ({ value: c.id, label: `${c.name}${c.phone ? ` (${c.phone})` : ''}` }))}
+                        options={customerList.map(c => ({ value: c.id, label: `${c.name}${c.phone ? ` (${c.phone})` : ''}` }))}
                         value={form.customerId || ''}
                         onChange={(val) => handleChange('customerId', val)}
                         placeholder="Select Customer"
@@ -399,21 +459,82 @@ const PolicyFormFields: React.FC<PolicyFormFieldsProps> = ({ form, setForm, comp
                 />
             </div>
 
-            {!isEditing && (
-                <div>
-                    <label className="label">Initial Paid Amount (₹)</label>
-                    <input 
-                        type="number" 
-                        min="0" 
-                        max={parseFloat(form.totalPremium || form.premiumAmount) || 0} 
-                        step="0.01" 
-                        className="input" 
-                        placeholder="Leave empty if pending"
-                        value={form.paidAmount || ''} 
-                        onChange={(e) => handleChange('paidAmount', e.target.value)} 
-                    />
+            {!isEditing && !isRenewal && (
+                <div className="col-span-full">
+                    <label className="label">Payment Collected at Issuance</label>
+
+                    {/* 3-Button Payment Status Selector */}
+                    <div className="grid grid-cols-3 gap-2 mb-3">
+                        {([
+                            { mode: 'pending', label: 'Pending', description: 'Not yet collected' },
+                            { mode: 'partial', label: 'Partial', description: 'Part amount collected' },
+                            { mode: 'paid',    label: 'Fully Paid', description: 'Full amount collected' },
+                        ] as { mode: PaymentMode; label: string; description: string }[]).map(({ mode, label, description }) => (
+                            <button
+                                key={mode}
+                                type="button"
+                                onClick={() => handlePaymentModeChange(mode)}
+                                className={`flex flex-col items-center justify-center px-3 py-2.5 rounded-xl border-2 text-center transition-all cursor-pointer ${
+                                    paymentMode === mode
+                                        ? mode === 'paid'
+                                            ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                                            : mode === 'partial'
+                                            ? 'border-amber-500 bg-amber-50 text-amber-700'
+                                            : 'border-surface-400 bg-surface-100 text-surface-700'
+                                        : 'border-surface-200 bg-white text-surface-500 hover:border-surface-300'
+                                }`}
+                            >
+                                <span className="text-sm font-semibold">{label}</span>
+                                <span className="text-[10px] mt-0.5 opacity-70">{description}</span>
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Fully Paid: show auto-filled read-only confirmation */}
+                    {paymentMode === 'paid' && fullPremiumValue > 0 && (
+                        <div className="flex items-center gap-2 px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-lg">
+                            <span className="text-xs text-emerald-700 font-medium">
+                                Full premium of <strong>₹{fullPremiumValue.toLocaleString('en-IN')}</strong> will be recorded as collected.
+                            </span>
+                        </div>
+                    )}
+
+                    {/* Fully Paid: warn if premium not yet entered */}
+                    {paymentMode === 'paid' && fullPremiumValue === 0 && (
+                        <div className="px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+                            <span className="text-xs text-amber-700">Enter Total Premium above first to auto-fill the paid amount.</span>
+                        </div>
+                    )}
+
+                    {/* Partial: show manual amount input */}
+                    {paymentMode === 'partial' && (
+                        <div>
+                            <label className="label">Amount Collected (₹) *</label>
+                            <input
+                                type="number"
+                                min="0.01"
+                                max={fullPremiumValue || undefined}
+                                step="0.01"
+                                className="input"
+                                placeholder="Enter amount collected so far..."
+                                value={form.paidAmount || ''}
+                                onChange={(e) => handleChange('paidAmount', e.target.value)}
+                            />
+                            {fullPremiumValue > 0 && (
+                                <p className="text-[11px] text-surface-400 mt-1">
+                                    Outstanding after this: ₹{(fullPremiumValue - (parseFloat(form.paidAmount) || 0)).toLocaleString('en-IN')}
+                                </p>
+                            )}
+                        </div>
+                    )}
                 </div>
             )}
+
+            <QuickCustomerModal
+                isOpen={quickCustomerModalOpen}
+                onClose={() => setQuickCustomerModalOpen(false)}
+                onCustomerCreated={handleCustomerCreated}
+            />
 
         </div>
     );

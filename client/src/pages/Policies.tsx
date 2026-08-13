@@ -615,6 +615,7 @@ const Policies: React.FC = () => {
                         isEditing={!!editing}
                         errors={errors}
                         setErrors={setErrors}
+                        onCustomerCreated={(newCustomer) => setCustomers(prev => [newCustomer, ...prev.filter(c => c.id !== newCustomer.id)])}
                     />
 
                     {editing && (
