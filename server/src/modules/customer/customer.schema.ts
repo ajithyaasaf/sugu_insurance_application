@@ -6,7 +6,7 @@ export const createCustomerSchema = z.object({
         phone: z.string().regex(/^[0-9]{10}$/, 'Phone must be exactly 10 digits').optional().or(z.literal('')),
         email: z.string().email('Invalid email address').optional().or(z.literal('')),
         address: z.string().optional(),
-        dob: z.string().datetime().optional().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).optional().or(z.literal('')),
+        dob: z.string().datetime().optional().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).optional().or(z.literal('')).or(z.null()),
     }),
 });
 
@@ -16,7 +16,7 @@ export const updateCustomerSchema = z.object({
         phone: z.string().regex(/^[0-9]{10}$/, 'Phone must be exactly 10 digits').optional().or(z.literal('')),
         email: z.string().email('Invalid email address').optional().or(z.literal('')),
         address: z.string().optional(),
-        dob: z.string().datetime().optional().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).optional().or(z.literal('')),
+        dob: z.string().datetime().optional().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).optional().or(z.literal('')).or(z.null()),
     }),
 });
 

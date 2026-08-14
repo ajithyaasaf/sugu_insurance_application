@@ -113,6 +113,11 @@ export class CustomerService {
         if (data.phone === '') data.phone = undefined;
         if (data.email === '') data.email = undefined;
 
+        // Transform dob to Date
+        if (data.dob && typeof data.dob === 'string') {
+            data.dob = new Date(data.dob);
+        }
+
         const nameToVerify = data.name !== undefined ? data.name : existingCustomer.name;
         const phoneToVerify = data.phone !== undefined ? data.phone : existingCustomer.phone;
 
