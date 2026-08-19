@@ -109,9 +109,9 @@ const SOURCE_COLUMNS: Record<string, { key: string; label: string }[]> = {
         { key: 'status', label: 'Status' },
         { key: 'reason', label: 'Reason' },
         { key: 'claimAmount', label: 'Claim Settled Amount' },
-        { key: 'surveyorName', label: 'Surveyor Name' },
-        { key: 'surveyorPhone', label: 'Surveyor Number' },
-        { key: 'workshopName', label: 'Workshop Name' },
+        { key: 'surveyorName', label: 'Surveyor / TPA' },
+        { key: 'surveyorPhone', label: 'Surveyor / TPA Phone' },
+        { key: 'workshopName', label: 'Workshop / Hospital' },
     ],
     customers: [
         { key: 'name', label: 'Name' },
@@ -217,6 +217,9 @@ function getColumnsForSource(source: string, policyType?: string): { key: string
                 { key: 'status', label: 'Status' },
                 { key: 'reason', label: 'Reason' },
                 { key: 'claimAmount', label: 'Claim Settled Amount' },
+                { key: 'surveyorName', label: 'TPA / Claim Officer' },
+                { key: 'surveyorPhone', label: 'TPA Phone' },
+                { key: 'workshopName', label: 'Hospital Name' },
             ];
         }
         if (source === 'followups') {
