@@ -107,12 +107,12 @@ export class DashboardService {
             // 10: Total Leads
             prisma.lead.count({ where: { ...ow, deletedAt: null, status: { not: 'converted' } } }),
 
-            // 11: Recent claims
+            // 11: Active claims (open/unsettled claims)
             prisma.claim.findMany({
-                where: { ...ow },
-                include: { customer: true, policy: true },
+                where: { ...ow, status: { in: ['filed', 'approved'] } },
+                include: { customer: true, policy: { include: { company: true } } },
                 orderBy: { createdAt: 'desc' },
-                take: 5,
+                take: 15,
             }),
 
             // 12: Company stats (grouped by company)
@@ -182,6 +182,14 @@ export class DashboardService {
                     renewals: { none: { deletedAt: null } },
                 } as any,
             }),
+            // 19: Count of filed claims
+            prisma.claim.count({
+                where: { ...ow, status: 'filed' },
+            }),
+            // 20: Count of approved claims
+            prisma.claim.count({
+                where: { ...ow, status: 'approved' },
+            }),
         ]);
 
         const expiringPolicies = results[0] as any[];
@@ -203,6 +211,8 @@ export class DashboardService {
         const vehicleClassGrouping = results[16] as any[];
         const expiredPolicies = results[17] as any[];
         const expiredPoliciesCount = results[18] as number;
+        const filedClaimsCount = results[19] as number;
+        const approvedClaimsCount = results[20] as number;
 
         // Get current month and date in IST (0-indexed month)
         const istParts = new Intl.DateTimeFormat('en-US', {
@@ -271,6 +281,9 @@ export class DashboardService {
                 overduePaymentsCount,
                 todayBirthdaysCount: todayBirthdays.length,
                 expiredPoliciesCount,
+                filedClaimsCount,
+                approvedClaimsCount,
+                activeClaimsCount: filedClaimsCount + approvedClaimsCount,
             },
             expiringPolicies: expiringPolicies.map(mapPolicyStatus),
             expiredPolicies: expiredPolicies.map(mapPolicyStatus),
@@ -278,6 +291,7 @@ export class DashboardService {
             pendingPayments,
             overduePayments,
             recentClaims,
+            activeClaims: recentClaims,
             companyStats,
             vehicleClassStats,
             todayBirthdays,

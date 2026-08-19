@@ -503,9 +503,9 @@ const PolicyDetail: React.FC = () => {
                                             <p className="text-[10px] text-surface-400 mt-0.5">{formatDate(claim.claimDate)}</p>
                                             {(claim.surveyorName || claim.workshopName) && (
                                                 <p className="text-[10px] text-surface-500 mt-1">
-                                                    {claim.surveyorName && `Srv: ${claim.surveyorName}`}
+                                                    {claim.surveyorName && `${policy.policyType === 'health' ? 'TPA' : 'Srv'}: ${claim.surveyorName}`}
                                                     {claim.surveyorPhone && ` (${claim.surveyorPhone})`}
-                                                    {claim.workshopName && ` | WS: ${claim.workshopName}`}
+                                                    {claim.workshopName && ` | ${policy.policyType === 'health' ? 'Hospital' : 'WS'}: ${claim.workshopName}`}
                                                 </p>
                                             )}
                                         </div>

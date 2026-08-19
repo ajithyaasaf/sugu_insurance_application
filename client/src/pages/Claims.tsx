@@ -253,9 +253,9 @@ const Claims: React.FC = () => {
                                             )}
                                             {(c.surveyorName || c.workshopName) && (
                                                 <p className="text-[10px] text-surface-500 mt-1">
-                                                    {c.surveyorName && `Srv: ${c.surveyorName}`}
+                                                    {c.surveyorName && `${c.policy?.policyType === 'health' ? 'TPA' : 'Srv'}: ${c.surveyorName}`}
                                                     {c.surveyorPhone && ` (${c.surveyorPhone})`}
-                                                    {c.workshopName && ` | WS: ${c.workshopName}`}
+                                                    {c.workshopName && ` | ${c.policy?.policyType === 'health' ? 'Hospital' : 'WS'}: ${c.workshopName}`}
                                                 </p>
                                             )}
                                         </td>
@@ -331,8 +331,8 @@ const Claims: React.FC = () => {
                                 {c.reason && <p className="text-xs text-surface-500 mt-1">{c.reason}</p>}
                                 {(c.surveyorName || c.workshopName) && (
                                     <div className="text-[11px] text-surface-500 mt-1.5 bg-surface-50 p-2 rounded-lg border border-surface-100/50">
-                                        {c.surveyorName && <p><strong>Surveyor:</strong> {c.surveyorName} {c.surveyorPhone && `(${c.surveyorPhone})`}</p>}
-                                        {c.workshopName && <p className="mt-0.5"><strong>Workshop:</strong> {c.workshopName}</p>}
+                                        {c.surveyorName && <p><strong>{c.policy?.policyType === 'health' ? 'TPA / Officer:' : 'Surveyor:'}</strong> {c.surveyorName} {c.surveyorPhone && `(${c.surveyorPhone})`}</p>}
+                                        {c.workshopName && <p className="mt-0.5"><strong>{c.policy?.policyType === 'health' ? 'Hospital:' : 'Workshop:'}</strong> {c.workshopName}</p>}
                                     </div>
                                 )}
                                 <div className="flex gap-2 mt-3 pt-3 border-t border-surface-100">
@@ -349,182 +349,189 @@ const Claims: React.FC = () => {
 
             {/* Create / Edit Modal */}
             <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Edit Claim' : 'File New Claim'}>
-                <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-                    {/* Customer */}
-                    <div>
-                        <label className="label">Customer *</label>
-                        <SearchableSelect
-                            disabled={!!editing}
-                            options={customers.map(c => ({ value: c.id, label: c.name }))}
-                            value={form.customerId}
-                            onChange={(val) => setField('customerId', val)}
-                            placeholder="Select Customer"
-                            hasError={!!errors.customerId}
-                        />
-                        {errors.customerId && <p className="text-xs text-red-500 mt-1">{errors.customerId}</p>}
-                    </div>
+                {(() => {
+                    const selectedPolicy = policies.find(p => p.id === form.policyId) || editing?.policy;
+                    const isHealth = selectedPolicy?.policyType === 'health';
 
-                    {/* Policy */}
-                    <div>
-                        <label className="label">Policy *</label>
-                        <SearchableSelect
-                            disabled={!!editing}
-                            options={policies
-                                .filter(p => !form.customerId || p.customerId === form.customerId)
-                                .map(p => ({
-                                    value: p.id,
-                                    label: `${p.policyNumber ? `${p.policyNumber} — ` : ''}${p.productName || p.policyType}${p.vehicleNumber ? ` (${p.vehicleNumber})` : ''}`,
-                                }))}
-                            value={form.policyId}
-                            onChange={(val) => {
-                                const selectedPolicy = policies.find(p => p.id === val);
-                                const resolvedCustomerId = selectedPolicy?.customerId || selectedPolicy?.customer?.id || '';
+                    return (
+                        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+                            {/* Customer */}
+                            <div>
+                                <label className="label">Customer *</label>
+                                <SearchableSelect
+                                    disabled={!!editing}
+                                    options={customers.map(c => ({ value: c.id, label: c.name }))}
+                                    value={form.customerId}
+                                    onChange={(val) => setField('customerId', val)}
+                                    placeholder="Select Customer"
+                                    hasError={!!errors.customerId}
+                                />
+                                {errors.customerId && <p className="text-xs text-red-500 mt-1">{errors.customerId}</p>}
+                            </div>
 
-                                if (selectedPolicy?.customer) {
-                                    const customerExists = customers.some(c => c.id === resolvedCustomerId);
-                                    if (!customerExists) {
-                                        setCustomers(prev => [...prev, selectedPolicy.customer]);
-                                    }
-                                }
+                            {/* Policy */}
+                            <div>
+                                <label className="label">Policy *</label>
+                                <SearchableSelect
+                                    disabled={!!editing}
+                                    options={policies
+                                        .filter(p => !form.customerId || p.customerId === form.customerId)
+                                        .map(p => ({
+                                            value: p.id,
+                                            label: `${p.policyNumber ? `${p.policyNumber} — ` : ''}${p.productName || p.policyType}${p.vehicleNumber ? ` (${p.vehicleNumber})` : ''}`,
+                                        }))}
+                                    value={form.policyId}
+                                    onChange={(val) => {
+                                        const pol = policies.find(p => p.id === val);
+                                        const resolvedCustomerId = pol?.customerId || pol?.customer?.id || '';
 
-                                setForm(prev => ({
-                                    ...prev,
-                                    policyId: val,
-                                    customerId: resolvedCustomerId || prev.customerId
-                                }));
-                                setErrors(prev => ({ ...prev, policyId: '', customerId: '' }));
-                            }}
-                            placeholder="Select Policy"
-                            hasError={!!errors.policyId}
-                        />
-                        {errors.policyId && <p className="text-xs text-red-500 mt-1">{errors.policyId}</p>}
-                    </div>
+                                        if (pol?.customer) {
+                                            const customerExists = customers.some(c => c.id === resolvedCustomerId);
+                                            if (!customerExists) {
+                                                setCustomers(prev => [...prev, pol.customer]);
+                                            }
+                                        }
 
-                    {/* Claim Number / Policy Number label */}
-                    <div>
-                        <label className="label">Claim Number / Policy Number</label>
-                        <input
-                            className="input"
-                            placeholder="e.g. CLM-2024-001 or Policy No."
-                            value={form.claimNumber}
-                            onChange={(e) => setField('claimNumber', e.target.value)}
-                        />
-                    </div>
+                                        setForm(prev => ({
+                                            ...prev,
+                                            policyId: val,
+                                            customerId: resolvedCustomerId || prev.customerId
+                                        }));
+                                        setErrors(prev => ({ ...prev, policyId: '', customerId: '' }));
+                                    }}
+                                    placeholder="Select Policy"
+                                    hasError={!!errors.policyId}
+                                />
+                                {errors.policyId && <p className="text-xs text-red-500 mt-1">{errors.policyId}</p>}
+                            </div>
 
-                    {/* Amounts row */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div>
-                            <label className="label">Claim Settled Amount</label>
-                            <input
-                                type="number" min="0" step="0.01"
-                                className={`input ${errors.claimAmount ? 'border-red-500 focus:ring-red-400' : ''}`}
-                                data-error-field={errors.claimAmount ? 'true' : undefined}
-                                placeholder="0.00 (optional)"
-                                value={form.claimAmount}
-                                onChange={(e) => setField('claimAmount', e.target.value)}
-                            />
-                            {errors.claimAmount && <p className="text-xs text-red-500 mt-1">{errors.claimAmount}</p>}
-                        </div>
-                        <div>
-                            <label className="label">Estimated Amount</label>
-                            <input
-                                type="number" min="0" step="0.01"
-                                className={`input ${errors.estimatedAmount ? 'border-red-500 focus:ring-red-400' : ''}`}
-                                placeholder="0.00 (optional)"
-                                value={form.estimatedAmount}
-                                onChange={(e) => setField('estimatedAmount', e.target.value)}
-                            />
-                            {errors.estimatedAmount && <p className="text-xs text-red-500 mt-1">{errors.estimatedAmount}</p>}
-                        </div>
-                        <div>
-                            <label className="label">Bill Amount</label>
-                            <input
-                                type="number" min="0" step="0.01"
-                                className={`input ${errors.billAmount ? 'border-red-500 focus:ring-red-400' : ''}`}
-                                placeholder="0.00 (optional)"
-                                value={form.billAmount}
-                                onChange={(e) => setField('billAmount', e.target.value)}
-                            />
-                            {errors.billAmount && <p className="text-xs text-red-500 mt-1">{errors.billAmount}</p>}
-                        </div>
-                    </div>
+                            {/* Claim Number / Policy Number label */}
+                            <div>
+                                <label className="label">Claim Number / Policy Number</label>
+                                <input
+                                    className="input"
+                                    placeholder="e.g. CLM-2024-001 or Policy No."
+                                    value={form.claimNumber}
+                                    onChange={(e) => setField('claimNumber', e.target.value)}
+                                />
+                            </div>
 
-                    {/* Date */}
-                    <div>
-                        <label className="label">Claim Date *</label>
-                        <input
-                            type="date"
-                            className={`input ${errors.claimDate ? 'border-red-500 focus:ring-red-400' : ''}`}
-                            data-error-field={errors.claimDate ? 'true' : undefined}
-                            value={form.claimDate}
-                            onChange={(e) => setField('claimDate', e.target.value)}
-                        />
-                        {errors.claimDate && <p className="text-xs text-red-500 mt-1">{errors.claimDate}</p>}
-                    </div>
+                            {/* Amounts row */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div>
+                                    <label className="label">Claim Settled Amount</label>
+                                    <input
+                                        type="number" min="0" step="0.01"
+                                        className={`input ${errors.claimAmount ? 'border-red-500 focus:ring-red-400' : ''}`}
+                                        data-error-field={errors.claimAmount ? 'true' : undefined}
+                                        placeholder="0.00 (optional)"
+                                        value={form.claimAmount}
+                                        onChange={(e) => setField('claimAmount', e.target.value)}
+                                    />
+                                    {errors.claimAmount && <p className="text-xs text-red-500 mt-1">{errors.claimAmount}</p>}
+                                </div>
+                                <div>
+                                    <label className="label">Estimated Amount</label>
+                                    <input
+                                        type="number" min="0" step="0.01"
+                                        className={`input ${errors.estimatedAmount ? 'border-red-500 focus:ring-red-400' : ''}`}
+                                        placeholder="0.00 (optional)"
+                                        value={form.estimatedAmount}
+                                        onChange={(e) => setField('estimatedAmount', e.target.value)}
+                                    />
+                                    {errors.estimatedAmount && <p className="text-xs text-red-500 mt-1">{errors.estimatedAmount}</p>}
+                                </div>
+                                <div>
+                                    <label className="label">Bill Amount</label>
+                                    <input
+                                        type="number" min="0" step="0.01"
+                                        className={`input ${errors.billAmount ? 'border-red-500 focus:ring-red-400' : ''}`}
+                                        placeholder="0.00 (optional)"
+                                        value={form.billAmount}
+                                        onChange={(e) => setField('billAmount', e.target.value)}
+                                    />
+                                    {errors.billAmount && <p className="text-xs text-red-500 mt-1">{errors.billAmount}</p>}
+                                </div>
+                            </div>
 
-                    {/* Status */}
-                    <div>
-                        <label className="label">Status *</label>
-                        <SearchableSelect
-                            options={claimStatusOptions.map(s => ({ value: s, label: s.charAt(0).toUpperCase() + s.slice(1) }))}
-                            value={form.status}
-                            onChange={(val) => setField('status', val)}
-                            placeholder="Select Status"
-                            hasError={!!errors.status}
-                        />
-                        {errors.status && <p className="text-xs text-red-500 mt-1">{errors.status}</p>}
-                    </div>
+                            {/* Date */}
+                            <div>
+                                <label className="label">Claim Date *</label>
+                                <input
+                                    type="date"
+                                    className={`input ${errors.claimDate ? 'border-red-500 focus:ring-red-400' : ''}`}
+                                    data-error-field={errors.claimDate ? 'true' : undefined}
+                                    value={form.claimDate}
+                                    onChange={(e) => setField('claimDate', e.target.value)}
+                                />
+                                {errors.claimDate && <p className="text-xs text-red-500 mt-1">{errors.claimDate}</p>}
+                            </div>
 
-                    {/* Surveyor Info */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                            <label className="label">Surveyor Name</label>
-                            <input
-                                className="input"
-                                placeholder="Enter name"
-                                value={form.surveyorName}
-                                onChange={(e) => setField('surveyorName', e.target.value)}
-                            />
-                        </div>
-                        <div>
-                            <label className="label">Surveyor Number</label>
-                            <input
-                                className="input"
-                                placeholder="e.g. 9876543210"
-                                value={form.surveyorPhone}
-                                onChange={(e) => setField('surveyorPhone', e.target.value.replace(/\D/g, '').slice(0, 10))}
-                            />
-                        </div>
-                    </div>
+                            {/* Status */}
+                            <div>
+                                <label className="label">Status *</label>
+                                <SearchableSelect
+                                    options={claimStatusOptions.map(s => ({ value: s, label: s.charAt(0).toUpperCase() + s.slice(1) }))}
+                                    value={form.status}
+                                    onChange={(val) => setField('status', val)}
+                                    placeholder="Select Status"
+                                    hasError={!!errors.status}
+                                />
+                                {errors.status && <p className="text-xs text-red-500 mt-1">{errors.status}</p>}
+                            </div>
 
-                    {/* Workshop Name */}
-                    <div>
-                        <label className="label">Workshop Name</label>
-                        <input
-                            className="input"
-                            placeholder="e.g. Maruti Service Center"
-                            value={form.workshopName}
-                            onChange={(e) => setField('workshopName', e.target.value)}
-                        />
-                    </div>
+                            {/* Surveyor / TPA Info */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label className="label">{isHealth ? 'TPA / Claim Officer Name' : 'Surveyor Name'}</label>
+                                    <input
+                                        className="input"
+                                        placeholder={isHealth ? "e.g. Medi Assist / Star Health Desk" : "Enter name"}
+                                        value={form.surveyorName}
+                                        onChange={(e) => setField('surveyorName', e.target.value)}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="label">{isHealth ? 'TPA / Contact Number' : 'Surveyor Number'}</label>
+                                    <input
+                                        className="input"
+                                        placeholder="e.g. 9876543210"
+                                        value={form.surveyorPhone}
+                                        onChange={(e) => setField('surveyorPhone', e.target.value.replace(/\D/g, '').slice(0, 10))}
+                                    />
+                                </div>
+                            </div>
 
-                    {/* Reason */}
-                    <div>
-                        <label className="label">Reason / Notes</label>
-                        <textarea
-                            className="input"
-                            rows={2}
-                            placeholder="Describe the reason for the claim..."
-                            value={form.reason}
-                            onChange={(e) => setField('reason', e.target.value)}
-                        />
-                    </div>
+                            {/* Facility: Hospital / Workshop Name */}
+                            <div>
+                                <label className="label">{isHealth ? 'Hospital Name' : 'Workshop Name'}</label>
+                                <input
+                                    className="input"
+                                    placeholder={isHealth ? "e.g. Apollo Hospital, MIOT" : "e.g. Maruti Service Center"}
+                                    value={form.workshopName}
+                                    onChange={(e) => setField('workshopName', e.target.value)}
+                                />
+                            </div>
 
-                    <div className="flex gap-3 pt-2">
-                        <button type="button" onClick={() => setModalOpen(false)} className="btn-secondary flex-1">Cancel</button>
-                        <Button type="submit" isLoading={isSubmitting} className="btn-primary flex-1">{editing ? 'Save Changes' : 'File Claim'}</Button>
-                    </div>
-                </form>
+                            {/* Reason */}
+                            <div>
+                                <label className="label">Reason / Notes</label>
+                                <textarea
+                                    className="input"
+                                    rows={2}
+                                    placeholder="Describe the reason for the claim..."
+                                    value={form.reason}
+                                    onChange={(e) => setField('reason', e.target.value)}
+                                />
+                            </div>
+
+                            <div className="flex gap-3 pt-2">
+                                <button type="button" onClick={() => setModalOpen(false)} className="btn-secondary flex-1">Cancel</button>
+                                <Button type="submit" isLoading={isSubmitting} className="btn-primary flex-1">{editing ? 'Save Changes' : 'File Claim'}</Button>
+                            </div>
+                        </form>
+                    );
+                })()}
             </Modal>
 
             {/* Delete Confirm Modal */}

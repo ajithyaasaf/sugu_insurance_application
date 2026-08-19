@@ -28,6 +28,9 @@ interface DashboardData {
         overduePaymentsCount: number;
         todayBirthdaysCount?: number;
         expiredPoliciesCount?: number;
+        filedClaimsCount?: number;
+        approvedClaimsCount?: number;
+        activeClaimsCount?: number;
     };
     expiringPolicies: any[];
     expiredPolicies?: any[];
@@ -35,6 +38,7 @@ interface DashboardData {
     pendingPayments: any[];
     overduePayments: any[];
     recentClaims: any[];
+    activeClaims?: any[];
     companyStats: any[];
     vehicleClassStats: any[];
     todayBirthdays?: any[];
@@ -45,6 +49,7 @@ const Dashboard: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [activePaymentTab, setActivePaymentTab] = useState<'overdue' | 'upcoming'>('overdue');
     const [activeExpiryTab, setActiveExpiryTab] = useState<'7days' | '30days' | 'expired'>('30days');
+    const [activeClaimTab, setActiveClaimTab] = useState<'all' | 'filed' | 'approved'>('all');
     const navigate = useNavigate();
     const birthdaySectionRef = useRef<HTMLDivElement>(null);
     const [birthdayFlash, setBirthdayFlash] = useState(false);
@@ -502,13 +507,13 @@ const Dashboard: React.FC = () => {
                 </div>
             </div>
 
-            {/* Follow-up Row (Full-width for premium look) */}
-            <div className="grid grid-cols-1 gap-6">
+            {/* Operational Row: Follow-ups & Active Claims Tracker */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Follow-up (7 Days) */}
                 <div className="card">
-                    <div className="flex items-center justify-between px-5 py-4 border-b border-surface-100">
-                        <h2 className="font-semibold text-surface-900">Follow-up (7 Days)</h2>
-                        <button onClick={() => navigate('/follow-ups')} className="text-xs text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1">
+                    <div className="flex items-center justify-between px-5 py-3.5 border-b border-surface-100">
+                        <h2 className="font-semibold text-surface-900 text-sm sm:text-base">Follow-up (7 Days)</h2>
+                        <button onClick={() => navigate('/follow-ups')} className="text-xs text-primary-600 hover:text-primary-700 font-medium flex items-center gap-0.5 sm:gap-1">
                             View All <HiOutlineChevronRight className="w-3 h-3" />
                         </button>
                     </div>
@@ -540,6 +545,116 @@ const Dashboard: React.FC = () => {
                                 </div>
                             ))
                         )}
+                    </div>
+                </div>
+
+                {/* Active Claims Tracker */}
+                <div className="card">
+                    <div className="flex items-center justify-between px-5 py-3.5 border-b border-surface-100">
+                        <div className="flex items-center gap-1.5 sm:gap-3">
+                            <span className="font-semibold text-surface-900 text-sm sm:text-base">Active Claims</span>
+                            <div className="flex bg-surface-100 p-0.5 rounded-lg border border-surface-200 text-xs font-semibold">
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveClaimTab('all')}
+                                    className={`px-2.5 py-1 rounded-md transition-all duration-150 ${activeClaimTab === 'all' ? 'bg-white text-primary-600 shadow-sm border border-surface-200 font-bold' : 'text-surface-500 hover:text-surface-900'}`}
+                                >
+                                    All ({(data.activeClaims || data.recentClaims || []).length})
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveClaimTab('filed')}
+                                    className={`px-2.5 py-1 rounded-md transition-all duration-150 ${activeClaimTab === 'filed' ? 'bg-white text-blue-600 shadow-sm border border-surface-200 font-bold' : 'text-surface-500 hover:text-surface-900'}`}
+                                >
+                                    Filed ({(data.activeClaims || data.recentClaims || []).filter((c: any) => c.status === 'filed').length})
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveClaimTab('approved')}
+                                    className={`px-2.5 py-1 rounded-md transition-all duration-150 ${activeClaimTab === 'approved' ? 'bg-white text-emerald-600 shadow-sm border border-surface-200 font-bold' : 'text-surface-500 hover:text-surface-900'}`}
+                                >
+                                    Approved ({(data.activeClaims || data.recentClaims || []).filter((c: any) => c.status === 'approved').length})
+                                </button>
+                            </div>
+                        </div>
+                        <button onClick={() => navigate('/claims')} className="text-xs text-primary-600 hover:text-primary-700 font-medium flex items-center gap-0.5 sm:gap-1">
+                            View All <HiOutlineChevronRight className="w-3 h-3" />
+                        </button>
+                    </div>
+
+                    <div className="divide-y divide-surface-100 max-h-[400px] overflow-y-auto">
+                        {(() => {
+                            const claimsList = (data.activeClaims || data.recentClaims || []);
+                            const filteredClaims = activeClaimTab === 'all'
+                                ? claimsList
+                                : claimsList.filter((c: any) => c.status === activeClaimTab);
+
+                            if (filteredClaims.length === 0) {
+                                return (
+                                    <p className="px-5 py-8 text-center text-sm text-surface-400 font-medium">
+                                        {activeClaimTab === 'all' ? 'No active unsettled claims 🎉' : `No ${activeClaimTab} claims`}
+                                    </p>
+                                );
+                            }
+
+                            return filteredClaims.map((claim: any) => (
+                                <div
+                                    key={claim.id}
+                                    className="px-5 py-3 flex items-center justify-between hover:bg-surface-50 cursor-pointer transition-colors"
+                                    onClick={() => navigate('/claims')}
+                                >
+                                    <div className="min-w-0 flex-1 pr-3">
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-sm font-medium text-surface-900 truncate">{claim.customer?.name}</p>
+                                            {claim.claimNumber && (
+                                                <span className="text-[10px] px-1.5 py-0.2 rounded bg-surface-100 text-surface-700 border border-surface-200 font-mono font-bold">
+                                                    {claim.claimNumber}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="flex flex-wrap items-center gap-1.5 mt-0.5 text-xs text-surface-500">
+                                            <span className="truncate max-w-[150px]">{claim.policy?.company?.name || claim.policy?.productName || claim.policy?.policyType || 'Policy'}</span>
+                                            {claim.policy?.vehicleNumber && (
+                                                <span className="px-1.5 py-0.5 rounded flex-shrink-0 bg-surface-100 text-surface-600 text-[10px] font-semibold tracking-wider uppercase border border-surface-200">
+                                                    {claim.policy.vehicleNumber}
+                                                </span>
+                                            )}
+                                            {claim.policy?.vehicleClass && (
+                                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-surface-100 text-surface-700 border border-surface-200 uppercase">
+                                                    {formatVehicleClass(claim.policy.vehicleClass)}
+                                                </span>
+                                            )}
+                                        </div>
+                                        {(claim.surveyorName || claim.workshopName) && (
+                                            <p className="text-[11px] text-surface-400 mt-0.5 truncate">
+                                                {claim.surveyorName && `${claim.policy?.policyType === 'health' ? 'TPA' : 'Surveyor'}: ${claim.surveyorName}${claim.surveyorPhone ? ` (${claim.surveyorPhone})` : ''}`}
+                                                {claim.surveyorName && claim.workshopName && ' • '}
+                                                {claim.workshopName && `${claim.policy?.policyType === 'health' ? 'Hospital' : 'Workshop'}: ${claim.workshopName}`}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div className="text-right flex-shrink-0 flex flex-col items-end gap-1">
+                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border ${
+                                            claim.status === 'approved'
+                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                : claim.status === 'filed'
+                                                ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                                : 'bg-surface-100 text-surface-700 border-surface-200'
+                                        }`}>
+                                            {claim.status}
+                                        </span>
+                                        {claim.estimatedAmount || claim.claimAmount || claim.billAmount ? (
+                                            <p className="text-xs font-semibold text-surface-900">
+                                                {formatCurrency(claim.estimatedAmount || claim.claimAmount || claim.billAmount)}
+                                            </p>
+                                        ) : null}
+                                        <p className="text-[10px] text-surface-400">
+                                            {formatRelativeDate(claim.claimDate || claim.createdAt)}
+                                        </p>
+                                    </div>
+                                </div>
+                            ));
+                        })()}
                     </div>
                 </div>
             </div>

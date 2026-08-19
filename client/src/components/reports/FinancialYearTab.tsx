@@ -251,6 +251,47 @@ const FinancialYearTab: React.FC = () => {
                         </div>
                     </div>
 
+                    {/* Claims Performance Breakdown Row */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="card card-body flex flex-col justify-between p-5">
+                            <div>
+                                <span className="text-[10px] font-black uppercase tracking-wider text-surface-400">Total Claims Filed</span>
+                                <div className="flex items-baseline gap-2 mt-1">
+                                    <p className="text-3xl font-black text-surface-900">{dash.claimsSummary?.totalCount || 0}</p>
+                                    <span className="text-xs font-semibold text-surface-500">Claims</span>
+                                </div>
+                            </div>
+                            <p className="text-[11px] text-surface-500 mt-4">
+                                {dash.claimsSummary?.totalAmount ? `Total claimed value: ${formatCurrency(dash.claimsSummary.totalAmount)}` : 'Total claims registered in this financial year.'}
+                            </p>
+                        </div>
+                        <div className="card card-body flex flex-col justify-between p-5">
+                            <div>
+                                <span className="text-[10px] font-black uppercase tracking-wider text-surface-400">Total Settled Amount</span>
+                                <p className="text-3xl font-black text-emerald-600 mt-1">
+                                    {formatCurrency(dash.claimsSummary?.settledAmount || 0)}
+                                </p>
+                            </div>
+                            <p className="text-[11px] text-surface-500 mt-4">
+                                {dash.claimsSummary?.settledCount || 0} claim{(dash.claimsSummary?.settledCount || 0) === 1 ? '' : 's'} successfully approved and disbursed by insurers.
+                            </p>
+                        </div>
+                        <div className="card card-body flex flex-col justify-between p-5">
+                            <div>
+                                <span className="text-[10px] font-black uppercase tracking-wider text-surface-400">Claims Settlement Ratio</span>
+                                <div className="flex items-baseline gap-2 mt-1">
+                                    <p className="text-3xl font-black text-blue-600">{dash.claimsSummary?.settlementRate || 0}%</p>
+                                    <span className="text-xs font-semibold text-surface-500">
+                                        ({dash.claimsSummary?.openCount || 0} Open / Pending)
+                                    </span>
+                                </div>
+                            </div>
+                            <p className="text-[11px] text-surface-500 mt-4">
+                                Percentage of registered claims successfully settled for customers.
+                            </p>
+                        </div>
+                    </div>
+
                     {/* Charts Grid */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {/* Company Performance */}

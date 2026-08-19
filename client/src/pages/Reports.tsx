@@ -18,7 +18,7 @@ const Reports: React.FC = () => {
 
     const tabs = [
         { id: 'dashboard' as TabId, label: 'Dashboard', icon: HiOutlineChartBar },
-        ...(!isStaff ? [{ id: 'fy-analytics' as TabId, label: 'Financial Year Analytics', icon: HiOutlineTrendingUp }] : []),
+        { id: 'fy-analytics' as TabId, label: 'Financial Year Analytics', icon: HiOutlineTrendingUp },
         ...(!isStaff ? [{ id: 'builder' as TabId, label: 'Report Builder', icon: HiOutlineAdjustments }] : []),
     ];
 
@@ -30,7 +30,7 @@ const Reports: React.FC = () => {
                     <h1 className="page-title">Reports & Analytics</h1>
                     <p className="text-sm text-surface-500 mt-1">
                         {isStaff 
-                            ? "Overview performance insights and operational analytics" 
+                            ? "Overview performance insights and financial year analytics" 
                             : "Generate insights, compare performance, and export data"}
                     </p>
                 </div>
@@ -60,7 +60,7 @@ const Reports: React.FC = () => {
             {/* Tab content */}
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                 {activeTab === 'dashboard' && <DashboardTab />}
-                {activeTab === 'fy-analytics' && !isStaff && <FinancialYearTab />}
+                {activeTab === 'fy-analytics' && <FinancialYearTab />}
                 {activeTab === 'builder' && !isStaff && <ReportBuilderTab />}
             </div>
         </div>

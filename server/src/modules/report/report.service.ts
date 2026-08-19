@@ -1509,6 +1509,14 @@ export class ReportService {
             delete kpiWhere.startDate;
         }
 
+        const claimsWhere: any = { ...ow };
+        claimsWhere.claimDate = {};
+        if (periodFilters.dateFrom) claimsWhere.claimDate.gte = getStartOfDayIST(periodFilters.dateFrom);
+        if (periodFilters.dateTo) claimsWhere.claimDate.lte = getEndOfDayIST(periodFilters.dateTo);
+        if (Object.keys(claimsWhere.claimDate).length === 0) {
+            delete claimsWhere.claimDate;
+        }
+
         const [
             companyPerformance,
             policyTypeBreakdown,
@@ -1520,6 +1528,7 @@ export class ReportService {
             periodPremium,
             vehicleClassPerformance,
             claimsTrend,
+            periodClaims,
         ] = await Promise.all([
             // Company-wise performance (filtered)
             this.groupPolicies(userId, role, periodFilters, 'company'),
@@ -1560,10 +1569,33 @@ export class ReportService {
 
             // Claims month-wise trend (filtered)
             this.groupClaims(userId, role, periodFilters, 'month'),
+
+            // Claims summary for the period
+            prisma.claim.findMany({
+                where: claimsWhere,
+                select: {
+                    id: true,
+                    status: true,
+                    claimAmount: true,
+                    estimatedAmount: true,
+                    billAmount: true,
+                },
+            }),
         ]);
 
         const [renewedCount, expiredCount] = renewalStats;
         const totalRev = (periodPremium as any)?._sum?.totalPremium || (periodPremium as any)?._sum?.premiumAmount || 0;
+
+        const totalClaimCount = periodClaims.length;
+        const totalClaimAmount = periodClaims.reduce((sum: number, c: any) => sum + (c.estimatedAmount || c.claimAmount || c.billAmount || 0), 0);
+        const settledClaims = periodClaims.filter((c: any) => c.status === 'settled');
+        const settledCount = settledClaims.length;
+        const settledAmount = settledClaims.reduce((sum: number, c: any) => sum + (c.claimAmount || c.billAmount || c.estimatedAmount || 0), 0);
+        const openClaims = periodClaims.filter((c: any) => c.status === 'filed' || c.status === 'approved');
+        const openCount = openClaims.length;
+        const openAmount = openClaims.reduce((sum: number, c: any) => sum + (c.estimatedAmount || c.claimAmount || c.billAmount || 0), 0);
+        const rejectedClaims = periodClaims.filter((c: any) => c.status === 'rejected');
+        const settlementRate = totalClaimCount > 0 ? Math.round((settledCount / totalClaimCount) * 100) : 0;
 
         return {
             companyPerformance,
@@ -1579,6 +1611,16 @@ export class ReportService {
                 successRate: (renewedCount + expiredCount) > 0
                     ? Math.round((renewedCount / (renewedCount + expiredCount)) * 100)
                     : 0,
+            },
+            claimsSummary: {
+                totalCount: totalClaimCount,
+                totalAmount: totalClaimAmount,
+                settledCount,
+                settledAmount,
+                openCount,
+                openAmount,
+                rejectedCount: rejectedClaims.length,
+                settlementRate,
             },
             // Key label for the UI — tells the frontend if it's filtered or default
             periodLabel: (filters?.dateFrom || filters?.dateTo) ? 'Selected Period' : 'This Month',
