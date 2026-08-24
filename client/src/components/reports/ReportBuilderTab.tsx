@@ -33,6 +33,7 @@ interface ReportFilters {
     companyIds?: string[] | string;
     dealerId?: string;
     customerId?: string;
+    customerIds?: string[] | string;
     policyType?: string;
     vehicleClass?: string;
     status?: string;
@@ -48,7 +49,7 @@ const SOURCE_OPTIONS: { value: Source; label: string; icon: React.ElementType }[
     { value: 'claims', label: 'Claims', icon: HiOutlineDocumentDownload },
     { value: 'customers', label: 'Customers', icon: HiOutlineTable },
     { value: 'followups', label: 'Follow-ups', icon: HiOutlineRefresh },
-    // { value: 'offers', label: 'Offers & Discounts', icon: HiOutlineTag },
+    { value: 'offers', label: 'Offers & Discounts', icon: HiOutlineTag },
     { value: 'customer-snapshot', label: 'Customer Statement', icon: HiOutlineUser },
 ];
 
@@ -133,8 +134,11 @@ const ReportBuilderTab: React.FC = () => {
     });
     const report = reportData?.data;
 
-    const updateLocalFilter = useCallback((key: keyof ReportFilters, value: string) => {
-        setLocalFilters(prev => ({ ...prev, [key]: value || undefined }));
+    const updateLocalFilter = useCallback((key: keyof ReportFilters, value: any) => {
+        setLocalFilters(prev => ({
+            ...prev,
+            [key]: Array.isArray(value) ? (value.length > 0 ? value : undefined) : (value || undefined)
+        }));
         setIsDirty(true);
     }, []);
 
@@ -345,11 +349,11 @@ const ReportBuilderTab: React.FC = () => {
 
     const statuses = getStatusOptions(source);
     const groupOptions = getGroupOptions(source);
-    const showCompanyFilter = ['policies', 'policies-expired', 'payments', 'claims', 'followups', 'customer-snapshot'].includes(source);
-    const showDealerFilter = ['policies', 'policies-expired', 'payments'].includes(source);
-    const showCustomerFilter = ['policies', 'policies-expired', 'payments', 'claims', 'followups', 'leads', 'customer-snapshot'].includes(source);
-    const showPolicyTypeFilter = ['policies', 'policies-expired', 'payments', 'claims', 'followups', 'customer-snapshot'].includes(source);
-    const showVehicleClassFilter = ['policies', 'policies-expired', 'payments', 'claims', 'customer-snapshot'].includes(source);
+    const showCompanyFilter = ['policies', 'policies-expired', 'payments', 'claims', 'followups', 'customer-snapshot', 'offers'].includes(source);
+    const showDealerFilter = ['policies', 'policies-expired', 'payments', 'offers'].includes(source);
+    const showCustomerFilter = ['policies', 'policies-expired', 'payments', 'claims', 'followups', 'leads', 'customer-snapshot', 'offers'].includes(source);
+    const showPolicyTypeFilter = ['policies', 'policies-expired', 'payments', 'claims', 'followups', 'customer-snapshot', 'offers'].includes(source);
+    const showVehicleClassFilter = ['policies', 'policies-expired', 'payments', 'claims', 'customer-snapshot', 'offers'].includes(source);
     const isSnapshot = source === 'customer-snapshot';
     const hasAdvancedFilters = showCompanyFilter || showCustomerFilter || showDealerFilter || showPolicyTypeFilter || showVehicleClassFilter;
 
@@ -496,14 +500,24 @@ const ReportBuilderTab: React.FC = () => {
                             {/* Customer */}
                             {showCustomerFilter && (
                                 <div>
-                                    <label className="label">Customer</label>
-                                    <SearchableSelect
-                                        options={customers.map((c: any) => ({ value: c.id, label: c.name }))}
-                                        value={localFilters.customerId || ''}
-                                        onChange={val => updateLocalFilter('customerId', val)}
-                                        allLabel="All Customers"
-                                        placeholder="Search customer..."
-                                    />
+                                    <label className="label">{source === 'customer-snapshot' ? 'Customer' : 'Customers'}</label>
+                                    {source === 'customer-snapshot' ? (
+                                        <SearchableSelect
+                                            options={customers.map((c: any) => ({ value: c.id, label: `${c.name}${c.phone ? ` (${c.phone})` : ''}` }))}
+                                            value={localFilters.customerId || ''}
+                                            onChange={val => updateLocalFilter('customerId', val)}
+                                            allLabel="Select a Customer"
+                                            placeholder="Search customer..."
+                                        />
+                                    ) : (
+                                        <SearchableSelect
+                                            options={customers.map((c: any) => ({ value: c.id, label: `${c.name}${c.phone ? ` (${c.phone})` : ''}` }))}
+                                            value={localFilters.customerIds || []}
+                                            onChange={val => updateLocalFilter('customerIds', val)}
+                                            multiple={true}
+                                            placeholder="Select Customers"
+                                        />
+                                    )}
                                 </div>
                             )}
 

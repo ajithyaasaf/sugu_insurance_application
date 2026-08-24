@@ -13,6 +13,7 @@ interface ReportFilters {
     companyIds?: string | string[];
     dealerId?: string;
     customerId?: string;
+    customerIds?: string | string[];
     policyType?: string;
     vehicleClass?: string;
     status?: string;
@@ -255,7 +256,12 @@ function buildPolicyWhere(userId: string, role: string, filters?: ReportFilters)
     } else if (filters?.dealerId) {
         where.dealerId = filters.dealerId;
     }
-    if (filters?.customerId) where.customerId = filters.customerId;
+    if (filters?.customerIds) {
+        const ids = typeof filters.customerIds === 'string' ? filters.customerIds.split(',') : filters.customerIds;
+        where.customerId = { in: ids };
+    } else if (filters?.customerId) {
+        where.customerId = filters.customerId;
+    }
     if (filters?.policyType) where.policyType = filters.policyType;
     if (filters?.vehicleClass) where.vehicleClass = filters.vehicleClass;
     if (filters?.policyOrigin) where.policyOrigin = filters.policyOrigin;
@@ -282,7 +288,12 @@ function buildPolicyExpiredWhere(userId: string, role: string, filters?: ReportF
     } else if (filters?.dealerId) {
         where.dealerId = filters.dealerId;
     }
-    if (filters?.customerId) where.customerId = filters.customerId;
+    if (filters?.customerIds) {
+        const ids = typeof filters.customerIds === 'string' ? filters.customerIds.split(',') : filters.customerIds;
+        where.customerId = { in: ids };
+    } else if (filters?.customerId) {
+        where.customerId = filters.customerId;
+    }
     if (filters?.policyType) where.policyType = filters.policyType;
     if (filters?.vehicleClass) where.vehicleClass = filters.vehicleClass;
     if (filters?.policyOrigin) where.policyOrigin = filters.policyOrigin;
@@ -312,7 +323,12 @@ function buildPaymentWhere(userId: string, role: string, filters?: ReportFilters
         }
     }
 
-    if (filters?.customerId) where.customerId = filters.customerId;
+    if (filters?.customerIds) {
+        const ids = typeof filters.customerIds === 'string' ? filters.customerIds.split(',') : filters.customerIds;
+        where.customerId = { in: ids };
+    } else if (filters?.customerId) {
+        where.customerId = filters.customerId;
+    }
     if (filters?.dateFrom || filters?.dateTo) {
         where.dueDate = {};
         if (filters?.dateFrom) where.dueDate.gte = getStartOfDayIST(filters.dateFrom);
@@ -340,7 +356,12 @@ function buildPaymentWhere(userId: string, role: string, filters?: ReportFilters
 function buildClaimWhere(userId: string, role: string, filters?: ReportFilters) {
     const where: any = { ...ownerFilter(userId, role) };
     if (filters?.status) where.status = filters.status;
-    if (filters?.customerId) where.customerId = filters.customerId;
+    if (filters?.customerIds) {
+        const ids = typeof filters.customerIds === 'string' ? filters.customerIds.split(',') : filters.customerIds;
+        where.customerId = { in: ids };
+    } else if (filters?.customerId) {
+        where.customerId = filters.customerId;
+    }
     if (filters?.dateFrom || filters?.dateTo) {
         where.claimDate = {};
         if (filters?.dateFrom) where.claimDate.gte = getStartOfDayIST(filters.dateFrom);
@@ -362,7 +383,12 @@ function buildClaimWhere(userId: string, role: string, filters?: ReportFilters) 
 
 function buildCustomerWhere(userId: string, role: string, filters?: ReportFilters) {
     const where: any = { ...ownerFilter(userId, role), deletedAt: null };
-    if (filters?.customerId) where.id = filters.customerId;
+    if (filters?.customerIds) {
+        const ids = typeof filters.customerIds === 'string' ? filters.customerIds.split(',') : filters.customerIds;
+        where.id = { in: ids };
+    } else if (filters?.customerId) {
+        where.id = filters.customerId;
+    }
     if (filters?.dateFrom || filters?.dateTo) {
         where.createdAt = {};
         if (filters?.dateFrom) where.createdAt.gte = getStartOfDayIST(filters.dateFrom);
@@ -374,7 +400,12 @@ function buildCustomerWhere(userId: string, role: string, filters?: ReportFilter
 function buildFollowUpWhere(userId: string, role: string, filters?: ReportFilters) {
     const where: any = { ...ownerFilter(userId, role) };
     if (filters?.status) where.status = filters.status;
-    if (filters?.customerId) where.customerId = filters.customerId;
+    if (filters?.customerIds) {
+        const ids = typeof filters.customerIds === 'string' ? filters.customerIds.split(',') : filters.customerIds;
+        where.customerId = { in: ids };
+    } else if (filters?.customerId) {
+        where.customerId = filters.customerId;
+    }
     if (filters?.dateFrom || filters?.dateTo) {
         where.nextFollowUpDate = {};
         if (filters?.dateFrom) where.nextFollowUpDate.gte = getStartOfDayIST(filters.dateFrom);
@@ -408,7 +439,12 @@ function buildOfferWhere(userId: string, role: string, filters?: ReportFilters) 
         if (filters?.dateFrom) where.createdAt.gte = getStartOfDayIST(filters.dateFrom);
         if (filters?.dateTo) where.createdAt.lte = getEndOfDayIST(filters.dateTo);
     }
-    if (filters?.customerId) where.policy.customerId = filters.customerId;
+    if (filters?.customerIds) {
+        const ids = typeof filters.customerIds === 'string' ? filters.customerIds.split(',') : filters.customerIds;
+        where.policy = { ...where.policy, customerId: { in: ids } };
+    } else if (filters?.customerId) {
+        where.policy = { ...where.policy, customerId: filters.customerId };
+    }
     if (filters?.policyType) where.policy.policyType = filters.policyType;
     if (filters?.vehicleClass) where.policy.vehicleClass = filters.vehicleClass;
     if (filters?.dealerId === 'direct') {

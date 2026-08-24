@@ -37,6 +37,7 @@ const filtersSchema = z.object({
     companyIds:   z.union([z.string(), z.array(z.string())]).optional(),
     dealerId:     z.union([z.string().uuid(), z.literal('direct')]).optional(),
     customerId:   z.string().uuid().optional(),
+    customerIds:  z.union([z.string(), z.array(z.string())]).optional(),
     policyType:   z.string().optional(),
     vehicleClass: z.string().optional(),
     status:       z.string().optional(),
