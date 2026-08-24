@@ -81,6 +81,8 @@ model Lead {
   registrationDate  DateTime?
   ncbPercentage     Float?
   policyOrigin      PolicyOrigin?
+  productName       String?
+  sumInsured        Float?
   tpStartDate       DateTime?
   tpEndDate         DateTime?
   user              User                @relation(fields: [userId], references: [id])

@@ -28,6 +28,8 @@ interface CreateLeadInput {
     expiryDate?: string;
     dealerId?: string;
     policyOrigin?: 'new_vehicle' | 'fresh' | 'external_renewal' | 'in_system_renewal';
+    productName?: string | null;
+    sumInsured?: number | null;
     ncbPercentage?: number | null;
     tpStartDate?: string | null;
     tpEndDate?: string | null;
@@ -58,6 +60,8 @@ interface UpdateLeadInput {
     expiryDate?: string;
     dealerId?: string;
     policyOrigin?: 'new_vehicle' | 'fresh' | 'external_renewal' | 'in_system_renewal';
+    productName?: string | null;
+    sumInsured?: number | null;
     ncbPercentage?: number | null;
     tpStartDate?: string | null;
     tpEndDate?: string | null;
@@ -97,6 +101,8 @@ export class LeadService {
                 tpEndDate: data.tpEndDate ? new Date(data.tpEndDate) : null,
                 dealerId: data.dealerId || null,
                 policyOrigin: data.policyOrigin as any || null,
+                productName: data.policyType === 'motor' ? null : (data.productName || data.interestedProduct || null),
+                sumInsured: data.policyType === 'motor' ? null : (data.sumInsured ?? null),
                 ncbPercentage: data.ncbPercentage ?? null,
 
                 createdBy: role,
@@ -214,6 +220,8 @@ export class LeadService {
                         ? null
                         : undefined,
                 dealerId: data.dealerId || undefined,
+                productName: data.productName !== undefined ? (data.policyType === 'motor' ? null : (data.productName || data.interestedProduct || null)) : undefined,
+                sumInsured: data.sumInsured !== undefined ? (data.policyType === 'motor' ? null : (data.sumInsured ?? null)) : undefined,
 
                 updatedBy: role,
             },
@@ -263,6 +271,8 @@ export class LeadService {
             address?: string; 
             email?: string; 
             policyOrigin?: string; 
+            productName?: string | null;
+            sumInsured?: number | null;
             ncbPercentage?: number | null;
             policyNumber?: string;
             policyType?: PolicyType;
@@ -384,22 +394,26 @@ export class LeadService {
                         expiryDate,
                         noOfYears: Math.max(1, Math.round(Math.abs(expiryDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 365))),
 
+                        // Non-motor / Health / Life fields
+                        productName: policyType === 'motor' ? null : (extra.productName || lead.productName || lead.interestedProduct || null),
+                        sumInsured: policyType === 'motor' ? null : (extra.sumInsured !== undefined && extra.sumInsured !== null ? extra.sumInsured : (lead.sumInsured ?? null)),
+
                         // Motor fields
-                        vehicleNumber: lead.vehicleNumber || extra.vehicleNumber || null,
-                        make: lead.make || extra.make || null,
-                        model: lead.model || extra.model || null,
-                        registrationDate: lead.registrationDate || (extra.registrationDate ? new Date(extra.registrationDate) : null),
-                        vehicleClass: lead.vehicleClass || extra.vehicleClass || null,
-                        idv: lead.idv !== null ? lead.idv : (extra.idv ?? null),
-                        od: od || null,
-                        tp: tp || null,
+                        vehicleNumber: policyType === 'motor' ? (lead.vehicleNumber || extra.vehicleNumber || null) : null,
+                        make: policyType === 'motor' ? (lead.make || extra.make || null) : null,
+                        model: policyType === 'motor' ? (lead.model || extra.model || null) : null,
+                        registrationDate: policyType === 'motor' ? (lead.registrationDate || (extra.registrationDate ? new Date(extra.registrationDate) : null)) : null,
+                        vehicleClass: policyType === 'motor' || policyType === 'non_motor' ? (lead.vehicleClass || extra.vehicleClass || null) : null,
+                        idv: policyType === 'motor' ? (lead.idv !== null ? lead.idv : (extra.idv ?? null)) : null,
+                        od: policyType === 'motor' ? (od || null) : null,
+                        tp: policyType === 'motor' ? (tp || null) : null,
                         tax: tax || null,
                         totalPremium: finalTotal || null,
                         dealerId: lead.dealerId || extra.dealerId || null,
                         policyOrigin: (extra.policyOrigin || lead.policyOrigin || 'fresh') as any,
-                        ncbPercentage: extra.ncbPercentage ?? lead.ncbPercentage ?? null,
-                        tpStartDate: lead.tpStartDate || (extra.tpStartDate ? new Date(extra.tpStartDate) : null),
-                        tpEndDate: lead.tpEndDate || (extra.tpEndDate ? new Date(extra.tpEndDate) : null),
+                        ncbPercentage: policyType === 'motor' ? (extra.ncbPercentage ?? lead.ncbPercentage ?? null) : null,
+                        tpStartDate: policyType === 'motor' ? (lead.tpStartDate || (extra.tpStartDate ? new Date(extra.tpStartDate) : null)) : null,
+                        tpEndDate: policyType === 'motor' ? (lead.tpEndDate || (extra.tpEndDate ? new Date(extra.tpEndDate) : null)) : null,
 
                         status: 'active',
                         createdBy: role,

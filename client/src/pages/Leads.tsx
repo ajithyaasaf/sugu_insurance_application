@@ -29,12 +29,20 @@ const Leads: React.FC = () => {
     const [leadToDelete, setLeadToDelete] = useState<any>(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
+    const safeDateInput = (val: any) => {
+        if (!val) return '';
+        if (typeof val === 'string') return val.split('T')[0];
+        if (val instanceof Date) return val.toISOString().split('T')[0];
+        return String(val).split('T')[0];
+    };
+
     // Initial State including Quote Fields
     const initialFormState = {
         name: '', phone: '', interestedProduct: '', status: 'new', nextFollowUpDate: '', notes: '',
         policyType: '', companyId: '', vehicleNumber: '', make: '', model: '', vehicleClass: '',
         idv: '', od: '', tp: '', tax: '', totalPremium: '', premiumAmount: '', startDate: '', expiryDate: '',
         dealerId: '', registrationDate: '', policyOrigin: 'fresh', ncbPercentage: '',
+        productName: '', sumInsured: '',
         tpStartDate: '', tpEndDate: ''
     };
     const [form, setForm] = useState(initialFormState);
@@ -43,6 +51,8 @@ const Leads: React.FC = () => {
         address: '',
         email: '',
         policyOrigin: 'fresh',
+        productName: '',
+        sumInsured: '',
         ncbPercentage: '',
         policyNumber: '',
         policyType: '',
@@ -109,10 +119,10 @@ const Leads: React.FC = () => {
             try {
                 const [compRes, dealerRes] = await Promise.all([
                     api.get('/companies'),
-                    api.get('/dealers')
+                    api.get('/dealers?limit=10000')
                 ]);
-                setCompanies(compRes.data.data);
-                setDealers(dealerRes.data.data);
+                setCompanies(compRes.data?.data || []);
+                setDealers(dealerRes.data?.data || []);
             } catch { }
         };
         loadInitialData();
@@ -139,19 +149,34 @@ const Leads: React.FC = () => {
         setErrors({});
         setForm({
             ...initialFormState,
-            name: lead.name, phone: lead.phone || '', interestedProduct: lead.interestedProduct || '',
-            status: lead.status, nextFollowUpDate: lead.nextFollowUpDate?.split('T')[0] || '', notes: lead.notes || '',
-            policyType: lead.policyType || '', companyId: lead.companyId || '', vehicleNumber: lead.vehicleNumber || '',
-            make: lead.make || '', model: lead.model || '', vehicleClass: lead.vehicleClass || '',
-            idv: lead.idv?.toString() || '', od: lead.od?.toString() || '', tp: lead.tp?.toString() || '',
-            tax: lead.tax?.toString() || '', totalPremium: lead.totalPremium?.toString() || '',
-            premiumAmount: lead.premiumAmount?.toString() || '',
-            startDate: lead.startDate?.split('T')[0] || '', expiryDate: lead.expiryDate?.split('T')[0] || '',
-            dealerId: lead.dealerId || '', registrationDate: lead.registrationDate?.split('T')[0] || '',
+            name: lead.name || '',
+            phone: lead.phone || '',
+            interestedProduct: lead.interestedProduct || '',
+            productName: lead.productName || lead.interestedProduct || '',
+            sumInsured: lead.sumInsured !== null && lead.sumInsured !== undefined ? lead.sumInsured.toString() : '',
+            status: lead.status || 'new',
+            nextFollowUpDate: safeDateInput(lead.nextFollowUpDate),
+            notes: lead.notes || '',
+            policyType: lead.policyType || '',
+            companyId: lead.companyId || '',
+            vehicleNumber: lead.vehicleNumber || '',
+            make: lead.make || '',
+            model: lead.model || '',
+            vehicleClass: lead.vehicleClass || '',
+            idv: lead.idv !== null && lead.idv !== undefined ? lead.idv.toString() : '',
+            od: lead.od !== null && lead.od !== undefined ? lead.od.toString() : '',
+            tp: lead.tp !== null && lead.tp !== undefined ? lead.tp.toString() : '',
+            tax: lead.tax !== null && lead.tax !== undefined ? lead.tax.toString() : '',
+            totalPremium: lead.totalPremium !== null && lead.totalPremium !== undefined ? lead.totalPremium.toString() : '',
+            premiumAmount: lead.premiumAmount !== null && lead.premiumAmount !== undefined ? lead.premiumAmount.toString() : '',
+            startDate: safeDateInput(lead.startDate),
+            expiryDate: safeDateInput(lead.expiryDate),
+            dealerId: lead.dealerId || '',
+            registrationDate: safeDateInput(lead.registrationDate),
             policyOrigin: lead.policyOrigin || 'fresh',
             ncbPercentage: lead.ncbPercentage !== null && lead.ncbPercentage !== undefined ? lead.ncbPercentage.toString() : '',
-            tpStartDate: lead.tpStartDate?.split('T')[0] || '',
-            tpEndDate: lead.tpEndDate?.split('T')[0] || ''
+            tpStartDate: safeDateInput(lead.tpStartDate),
+            tpEndDate: safeDateInput(lead.tpEndDate)
         });
         setModalOpen(true);
     };
@@ -173,24 +198,26 @@ const Leads: React.FC = () => {
                 nextFollowUpDate: form.nextFollowUpDate || undefined,
                 policyType: form.policyType || undefined,
                 companyId: form.companyId || undefined,
-                vehicleNumber: form.vehicleNumber || undefined,
-                make: form.make || undefined,
-                model: form.model || undefined,
+                productName: form.policyType === 'motor' ? undefined : (form.productName || form.interestedProduct || undefined),
+                sumInsured: form.policyType === 'motor' ? undefined : (form.sumInsured ? parseFloat(form.sumInsured) : undefined),
+                vehicleNumber: form.policyType === 'motor' ? (form.vehicleNumber || undefined) : undefined,
+                make: form.policyType === 'motor' ? (form.make || undefined) : undefined,
+                model: form.policyType === 'motor' ? (form.model || undefined) : undefined,
                 vehicleClass: form.vehicleClass || undefined,
                 startDate: form.startDate || undefined,
                 expiryDate: form.expiryDate || undefined,
                 tpStartDate: (form.vehicleClass === 'SAOD_TW' || form.vehicleClass === 'SAOD_PVT') && form.tpStartDate ? form.tpStartDate : null,
                 tpEndDate: (form.vehicleClass === 'SAOD_TW' || form.vehicleClass === 'SAOD_PVT') && form.tpEndDate ? form.tpEndDate : null,
                 dealerId: form.dealerId || undefined,
-                idv: form.idv ? parseFloat(form.idv) : undefined,
-                od: form.od ? parseFloat(form.od) : undefined,
-                tp: form.tp ? parseFloat(form.tp) : undefined,
+                idv: form.policyType === 'motor' && form.idv ? parseFloat(form.idv) : undefined,
+                od: form.policyType === 'motor' && form.od ? parseFloat(form.od) : undefined,
+                tp: form.policyType === 'motor' && form.tp ? parseFloat(form.tp) : undefined,
                 tax: form.tax ? parseFloat(form.tax) : undefined,
                 totalPremium: form.totalPremium ? parseFloat(form.totalPremium) : (form.premiumAmount ? parseFloat(form.premiumAmount) : undefined),
                 premiumAmount: form.premiumAmount ? parseFloat(form.premiumAmount) : undefined,
-                registrationDate: form.registrationDate || undefined,
+                registrationDate: form.policyType === 'motor' && form.registrationDate ? form.registrationDate : undefined,
                 policyOrigin: form.policyOrigin,
-                ncbPercentage: form.ncbPercentage ? parseFloat(form.ncbPercentage as string) : undefined,
+                ncbPercentage: form.policyType === 'motor' && form.ncbPercentage ? parseFloat(form.ncbPercentage as string) : undefined,
             };
 
             if (editing) {
@@ -232,19 +259,21 @@ const Leads: React.FC = () => {
             address: '',
             email: '',
             policyOrigin: lead.policyOrigin || 'fresh',
+            productName: lead.productName || lead.interestedProduct || '',
+            sumInsured: lead.sumInsured !== null && lead.sumInsured !== undefined ? lead.sumInsured.toString() : '',
             ncbPercentage: lead.ncbPercentage !== null && lead.ncbPercentage !== undefined ? lead.ncbPercentage.toString() : '',
             policyNumber: lead.policyNumber || '',
             policyType: lead.policyType || '',
             companyId: lead.companyId || '',
             premiumAmount: lead.premiumAmount?.toString() || '',
-            startDate: lead.startDate?.split('T')[0] || '',
-            expiryDate: lead.expiryDate?.split('T')[0] || '',
+            startDate: safeDateInput(lead.startDate),
+            expiryDate: safeDateInput(lead.expiryDate),
             vehicleNumber: lead.vehicleNumber || '',
             make: lead.make || '',
             model: lead.model || '',
             vehicleClass: lead.vehicleClass || '',
-            tpStartDate: lead.tpStartDate?.split('T')[0] || '',
-            tpEndDate: lead.tpEndDate?.split('T')[0] || '',
+            tpStartDate: safeDateInput(lead.tpStartDate),
+            tpEndDate: safeDateInput(lead.tpEndDate),
         });
         setErrors({});
         setConvertModalOpen(true);
@@ -292,11 +321,18 @@ const Leads: React.FC = () => {
         try {
             const finalClass = convertingLead?.vehicleClass || convertForm.vehicleClass;
             const isSaod = finalClass === 'SAOD_TW' || finalClass === 'SAOD_PVT';
+            const productName = convertingLead?.productName || convertForm.productName;
+            const sumInsured = (convertingLead?.sumInsured !== null && convertingLead?.sumInsured !== undefined)
+                ? convertingLead.sumInsured
+                : (convertForm.sumInsured ? parseFloat(convertForm.sumInsured) : undefined);
+
             const payload = {
                 address: convertForm.address || undefined,
                 email: convertForm.email || undefined,
                 policyOrigin: convertForm.policyOrigin,
-                ncbPercentage: convertForm.ncbPercentage ? parseFloat(convertForm.ncbPercentage) : undefined,
+                productName: policyType === 'motor' ? undefined : (productName || undefined),
+                sumInsured: policyType === 'motor' ? undefined : (sumInsured !== undefined ? sumInsured : undefined),
+                ncbPercentage: policyType === 'motor' && convertForm.ncbPercentage ? parseFloat(convertForm.ncbPercentage) : undefined,
                 tpStartDate: isSaod ? (convertingLead?.tpStartDate || convertForm.tpStartDate || null) : null,
                 tpEndDate: isSaod ? (convertingLead?.tpEndDate || convertForm.tpEndDate || null) : null,
                 
@@ -386,7 +422,7 @@ const Leads: React.FC = () => {
                                             </div>
                                         </td>
                                         <td>{lead.phone || '—'}</td>
-                                        <td>{lead.interestedProduct || '—'}</td>
+                                        <td>{lead.productName || lead.interestedProduct || '—'}</td>
                                         <td><span className={getStatusColor(lead.status)}>{lead.status}</span></td>
                                         <td>{lead.nextFollowUpDate ? formatDate(lead.nextFollowUpDate) : '—'}</td>
                                         <td>
@@ -419,7 +455,7 @@ const Leads: React.FC = () => {
                                     </div>
                                     <span className={getStatusColor(lead.status)}>{lead.status}</span>
                                 </div>
-                                {lead.interestedProduct && <p className="text-xs text-surface-500 mb-2">Product: {lead.interestedProduct}</p>}
+                                {(lead.productName || lead.interestedProduct) && <p className="text-xs text-surface-500 mb-2">Product: {lead.productName || lead.interestedProduct}</p>}
                                 <div className="flex gap-2 mt-2">
                                     <button onClick={() => openEdit(lead)} className="btn-secondary btn-sm flex-1">Edit</button>
                                     {lead.status !== 'converted' && <button onClick={() => openConvert(lead)} className="btn-primary btn-sm flex-1">Convert</button>}
@@ -463,7 +499,9 @@ const Leads: React.FC = () => {
                     <div>
                         <label className="label">Status *</label>
                         <SearchableSelect
-                            options={statusOptions.filter(s => s !== 'converted').map(s => ({ value: s, label: s.charAt(0).toUpperCase() + s.slice(1) }))}
+                            options={statusOptions
+                                .filter(s => editing?.status === 'converted' ? true : s !== 'converted')
+                                .map(s => ({ value: s, label: s.charAt(0).toUpperCase() + s.slice(1) }))}
                             value={form.status}
                             onChange={(val) => { setForm({ ...form, status: val }); setErrors(prev => ({ ...prev, status: '' })); }}
                             placeholder="Select Status"
@@ -474,7 +512,16 @@ const Leads: React.FC = () => {
                     <div><label className="label">Next Follow-up Date</label><input type="date" className="input" value={form.nextFollowUpDate} onChange={(e) => setForm({ ...form, nextFollowUpDate: e.target.value })} /></div>
                     <div><label className="label">Notes</label><textarea className="input" rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
  
-                    <PolicyFormFields form={form} setForm={setForm} companies={companies} dealers={dealers} showQuoteHeader />
+                    <PolicyFormFields
+                        form={form}
+                        setForm={setForm}
+                        companies={companies}
+                        dealers={dealers}
+                        isEditing={!!editing}
+                        showQuoteHeader
+                        errors={errors}
+                        setErrors={setErrors}
+                    />
  
                     <div className="flex gap-3 pt-2">
                         <button type="button" onClick={() => setModalOpen(false)} className="btn-secondary flex-1">Cancel</button>
@@ -755,6 +802,36 @@ const Leads: React.FC = () => {
                                                     }}
                                                 />
                                                 {errors.model && <p className="text-xs text-red-500 mt-1">{errors.model}</p>}
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+
+                                {((convertingLead?.policyType || convertForm.policyType) !== 'motor') && (
+                                    <>
+                                        {!convertingLead?.productName && !convertingLead?.interestedProduct && (
+                                            <div>
+                                                <label className="label">Product / Plan Name</label>
+                                                <input
+                                                    className="input"
+                                                    placeholder="e.g. Health Premier / Jeevan Labh"
+                                                    value={convertForm.productName}
+                                                    onChange={(e) => setConvertForm(prev => ({ ...prev, productName: e.target.value }))}
+                                                />
+                                            </div>
+                                        )}
+                                        {!convertingLead?.sumInsured && (
+                                            <div>
+                                                <label className="label">Sum Insured / Cover</label>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    step="0.01"
+                                                    className="input"
+                                                    placeholder="e.g. 500000"
+                                                    value={convertForm.sumInsured}
+                                                    onChange={(e) => setConvertForm(prev => ({ ...prev, sumInsured: e.target.value }))}
+                                                />
                                             </div>
                                         )}
                                     </>

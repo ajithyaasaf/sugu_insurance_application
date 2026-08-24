@@ -137,7 +137,7 @@ const PolicyFormFields: React.FC<PolicyFormFieldsProps> = ({ form, setForm, comp
                 </div>
             )}
             
-            {customers !== undefined && (
+            {!showQuoteHeader && customers !== undefined && (
                 <div>
                     <div className="flex items-center justify-between mb-1">
                         <label className="label mb-0">Customer *</label>
