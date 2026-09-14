@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/client';
 import { formatDate, formatCurrency, getStatusColor, daysUntil, scrollToFirstError, formatVehicleClass } from '../utils/format';
+import { DUAL_DATE_VEHICLE_CLASSES } from '../utils/constants';
 import toast from 'react-hot-toast';
 import Modal from '../components/ui/Modal';
 import { 
@@ -255,24 +256,24 @@ const PolicyDetail: React.FC = () => {
                                 <p className="text-lg font-black text-primary-600">{formatCurrency(policy.totalPremium || policy.premiumAmount)}</p>
                             </div>
                             {(() => {
-                                const isSaod = policy.vehicleClass === 'SAOD_TW' || policy.vehicleClass === 'SAOD_PVT';
+                                const isDualDate = DUAL_DATE_VEHICLE_CLASSES.includes(policy.vehicleClass);
                                 return (
                                     <>
                                         <div>
-                                            <p className="text-xs text-surface-500 mb-1">{isSaod ? 'OD Start Date' : 'Start Date'}</p>
+                                            <p className="text-xs text-surface-500 mb-1">{isDualDate ? 'OD Start Date' : 'Start Date'}</p>
                                             <p className="text-sm font-medium text-surface-900">{formatDate(policy.startDate)}</p>
                                         </div>
                                         <div>
-                                            <p className="text-xs text-surface-500 mb-1">{isSaod ? 'OD End Date' : 'Expiry Date'}</p>
+                                            <p className="text-xs text-surface-500 mb-1">{isDualDate ? 'OD End Date' : 'Expiry Date'}</p>
                                             <p className="text-sm font-medium text-surface-900">{formatDate(policy.expiryDate)}</p>
                                         </div>
-                                        {isSaod && policy.tpStartDate && (
+                                        {isDualDate && policy.tpStartDate && (
                                             <div>
                                                 <p className="text-xs text-surface-500 mb-1">TP Start Date</p>
                                                 <p className="text-sm font-medium text-surface-900">{formatDate(policy.tpStartDate)}</p>
                                             </div>
                                         )}
-                                        {isSaod && policy.tpEndDate && (
+                                        {isDualDate && policy.tpEndDate && (
                                             <div>
                                                 <p className="text-xs text-surface-500 mb-1">TP End Date</p>
                                                 <p className="text-sm font-medium text-surface-900">{formatDate(policy.tpEndDate)}</p>
@@ -427,16 +428,16 @@ const PolicyDetail: React.FC = () => {
                         </div>
                         <div className="space-y-4">
                             {(() => {
-                                const isSaod = policy.vehicleClass === 'SAOD_TW' || policy.vehicleClass === 'SAOD_PVT';
+                                const isDualDate = DUAL_DATE_VEHICLE_CLASSES.includes(policy.vehicleClass);
                                 const odDays = daysUntil(policy.expiryDate);
-                                const tpDays = isSaod && policy.tpEndDate ? daysUntil(policy.tpEndDate) : 9999;
-                                const minDays = isSaod && policy.tpEndDate ? Math.min(odDays, tpDays) : odDays;
-                                const isTpSoonest = isSaod && policy.tpEndDate && tpDays < odDays;
+                                const tpDays = isDualDate && policy.tpEndDate ? daysUntil(policy.tpEndDate) : 9999;
+                                const minDays = isDualDate && policy.tpEndDate ? Math.min(odDays, tpDays) : odDays;
+                                const isTpSoonest = isDualDate && policy.tpEndDate && tpDays < odDays;
 
                                 return (
                                     <div>
                                         <p className="text-xs text-surface-500">
-                                            {isSaod && policy.tpEndDate ? (isTpSoonest ? 'Days Left (TP Cover)' : 'Days Left (OD Cover)') : 'Days Left'}
+                                            {isDualDate && policy.tpEndDate ? (isTpSoonest ? 'Days Left (TP Cover)' : 'Days Left (OD Cover)') : 'Days Left'}
                                         </p>
                                         <p className={`text-xl font-bold ${minDays <= 30 ? 'text-red-600' : 'text-surface-900'}`}>
                                             {minDays} <span className="text-xs font-normal">days until expiry</span>

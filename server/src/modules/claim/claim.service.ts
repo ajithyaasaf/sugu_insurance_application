@@ -79,8 +79,8 @@ export class ClaimService {
         const normalizedSearch = search?.toUpperCase().replace(/\s+/g, '_');
         const VALID_VEHICLE_CLASSES = [
             'TW', 'PCV', 'PVT', 'GCV', 'Misc_D', 'CPM', 'Fire', 
-            'Public_Liability', 'SAOD_TW', 'SAOD_PVT', 'CPA', 
-            'Home_Insurance', 'Others'
+            'Public_Liability', 'SAOD_TW', 'SAOD_PVT', 'BUNDLED_POLICY_TW', 'BUNDLED_POLICY_PVT', 'CPA', 
+            'Home_Insurance', 'RAK_Policy', 'Others'
         ];
         const matchedClasses = [search?.toUpperCase(), normalizedSearch].filter(
             val => val && VALID_VEHICLE_CLASSES.includes(val)

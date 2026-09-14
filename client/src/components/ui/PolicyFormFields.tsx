@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import SearchableSelect from './SearchableSelect';
 import QuickCustomerModal from './QuickCustomerModal';
 import { HiOutlinePlus } from 'react-icons/hi';
-import { POLICY_TYPES, VEHICLE_CLASSES, MOTOR_VEHICLE_CLASSES, NON_MOTOR_VEHICLE_CLASSES, PREMIUM_MODES } from '../../utils/constants';
+import { POLICY_TYPES, VEHICLE_CLASSES, MOTOR_VEHICLE_CLASSES, NON_MOTOR_VEHICLE_CLASSES, PREMIUM_MODES, DUAL_DATE_VEHICLE_CLASSES } from '../../utils/constants';
 import { formatDateInput, formatVehicleClass } from '../../utils/format';
 
 interface PolicyFormFieldsProps {
@@ -391,12 +391,12 @@ const PolicyFormFields: React.FC<PolicyFormFieldsProps> = ({ form, setForm, comp
             </div>
             
             {(() => {
-                const isSaod = form.vehicleClass === 'SAOD_TW' || form.vehicleClass === 'SAOD_PVT';
+                const hasDualDates = DUAL_DATE_VEHICLE_CLASSES.includes(form.vehicleClass);
                 return (
                     <>
                         <div>
                             <label className="label">
-                                {isSaod ? 'OD Start Date' : 'Start Date'} {isRequired ? '*' : ''}
+                                {hasDualDates ? 'OD Start Date' : 'Start Date'} {isRequired ? '*' : ''}
                             </label>
                             <input
                                 type="date"
@@ -410,7 +410,7 @@ const PolicyFormFields: React.FC<PolicyFormFieldsProps> = ({ form, setForm, comp
 
                         <div>
                             <label className="label">
-                                {isSaod ? 'OD End Date' : 'Expiry Date'} {isRequired ? '*' : ''}
+                                {hasDualDates ? 'OD End Date' : 'Expiry Date'} {isRequired ? '*' : ''}
                             </label>
                             <input
                                 type="date"
@@ -423,7 +423,7 @@ const PolicyFormFields: React.FC<PolicyFormFieldsProps> = ({ form, setForm, comp
                             {(dateError || errors.expiryDate) && <p className="text-xs text-red-500 mt-1">{dateError || errors.expiryDate}</p>}
                         </div>
 
-                        {isSaod && (
+                        {hasDualDates && (
                             <>
                                 <div>
                                     <label className="label">TP Start Date</label>

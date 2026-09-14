@@ -9,7 +9,7 @@ import TableSkeleton from '../components/ui/TableSkeleton';
 import { formatDate, getStatusColor, scrollToFirstError, formatVehicleClass } from '../utils/format';
 import toast from 'react-hot-toast';
 import { HiOutlinePlus, HiOutlineSearch, HiOutlinePencil, HiOutlineTrash, HiOutlineUserAdd, HiOutlineTrendingUp } from 'react-icons/hi';
-import { LEAD_STATUSES as statusOptions, VEHICLE_CLASSES } from '../utils/constants';
+import { LEAD_STATUSES as statusOptions, VEHICLE_CLASSES, DUAL_DATE_VEHICLE_CLASSES } from '../utils/constants';
 import Button from '../components/ui/Button';
 
 const Leads: React.FC = () => {
@@ -206,8 +206,8 @@ const Leads: React.FC = () => {
                 vehicleClass: form.vehicleClass || undefined,
                 startDate: form.startDate || undefined,
                 expiryDate: form.expiryDate || undefined,
-                tpStartDate: (form.vehicleClass === 'SAOD_TW' || form.vehicleClass === 'SAOD_PVT') && form.tpStartDate ? form.tpStartDate : null,
-                tpEndDate: (form.vehicleClass === 'SAOD_TW' || form.vehicleClass === 'SAOD_PVT') && form.tpEndDate ? form.tpEndDate : null,
+                tpStartDate: DUAL_DATE_VEHICLE_CLASSES.includes(form.vehicleClass) && form.tpStartDate ? form.tpStartDate : null,
+                tpEndDate: DUAL_DATE_VEHICLE_CLASSES.includes(form.vehicleClass) && form.tpEndDate ? form.tpEndDate : null,
                 dealerId: form.dealerId || undefined,
                 idv: form.policyType === 'motor' && form.idv ? parseFloat(form.idv) : undefined,
                 od: form.policyType === 'motor' && form.od ? parseFloat(form.od) : undefined,
@@ -320,7 +320,7 @@ const Leads: React.FC = () => {
         setIsConverting(true);
         try {
             const finalClass = convertingLead?.vehicleClass || convertForm.vehicleClass;
-            const isSaod = finalClass === 'SAOD_TW' || finalClass === 'SAOD_PVT';
+            const isDualDate = DUAL_DATE_VEHICLE_CLASSES.includes(finalClass);
             const productName = convertingLead?.productName || convertForm.productName;
             const sumInsured = (convertingLead?.sumInsured !== null && convertingLead?.sumInsured !== undefined)
                 ? convertingLead.sumInsured
@@ -333,8 +333,8 @@ const Leads: React.FC = () => {
                 productName: policyType === 'motor' ? undefined : (productName || undefined),
                 sumInsured: policyType === 'motor' ? undefined : (sumInsured !== undefined ? sumInsured : undefined),
                 ncbPercentage: policyType === 'motor' && convertForm.ncbPercentage ? parseFloat(convertForm.ncbPercentage) : undefined,
-                tpStartDate: isSaod ? (convertingLead?.tpStartDate || convertForm.tpStartDate || null) : null,
-                tpEndDate: isSaod ? (convertingLead?.tpEndDate || convertForm.tpEndDate || null) : null,
+                tpStartDate: isDualDate ? (convertingLead?.tpStartDate || convertForm.tpStartDate || null) : null,
+                tpEndDate: isDualDate ? (convertingLead?.tpEndDate || convertForm.tpEndDate || null) : null,
                 
                 // Dynamically append any missing details provided inline in the modal
                 ...(!convertingLead?.policyType && { policyType: convertForm.policyType }),
@@ -691,12 +691,12 @@ const Leads: React.FC = () => {
 
                                 {(() => {
                                     const finalClass = convertingLead?.vehicleClass || convertForm.vehicleClass;
-                                    const isSaod = finalClass === 'SAOD_TW' || finalClass === 'SAOD_PVT';
+                                    const isDualDate = DUAL_DATE_VEHICLE_CLASSES.includes(finalClass);
                                     return (
                                         <>
                                             {!convertingLead?.startDate && (
                                                 <div>
-                                                    <label className="label">{isSaod ? 'OD Start Date *' : 'Start Date *'}</label>
+                                                    <label className="label">{isDualDate ? 'OD Start Date *' : 'Start Date *'}</label>
                                                     <input
                                                         type="date"
                                                         className={`input ${errors.startDate ? 'border-red-500 focus:ring-red-400' : ''}`}
@@ -712,7 +712,7 @@ const Leads: React.FC = () => {
 
                                             {!convertingLead?.expiryDate && (
                                                 <div>
-                                                    <label className="label">{isSaod ? 'OD End Date *' : 'Expiry Date *'}</label>
+                                                    <label className="label">{isDualDate ? 'OD End Date *' : 'Expiry Date *'}</label>
                                                     <input
                                                         type="date"
                                                         className={`input ${errors.expiryDate ? 'border-red-500 focus:ring-red-400' : ''}`}
@@ -726,7 +726,7 @@ const Leads: React.FC = () => {
                                                 </div>
                                             )}
 
-                                            {isSaod && !convertingLead?.tpStartDate && (
+                                            {isDualDate && !convertingLead?.tpStartDate && (
                                                 <div>
                                                     <label className="label">TP Start Date</label>
                                                     <input
@@ -740,7 +740,7 @@ const Leads: React.FC = () => {
                                                 </div>
                                             )}
 
-                                            {isSaod && !convertingLead?.tpEndDate && (
+                                            {isDualDate && !convertingLead?.tpEndDate && (
                                                 <div>
                                                     <label className="label">TP End Date</label>
                                                     <input

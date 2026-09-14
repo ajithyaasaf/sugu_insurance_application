@@ -13,7 +13,7 @@ export class SearchService {
         const normalizedQuery = query.toUpperCase().replace(/\s+/g, '_');
         const VALID_VEHICLE_CLASSES = [
             'TW', 'PCV', 'PVT', 'GCV', 'Misc_D', 'CPM', 'Fire', 
-            'Public_Liability', 'SAOD_TW', 'SAOD_PVT', 'CPA', 
+            'Public_Liability', 'SAOD_TW', 'SAOD_PVT', 'BUNDLED_POLICY_TW', 'BUNDLED_POLICY_PVT', 'CPA', 
             'Home_Insurance', 'RAK_Policy', 'Others'
         ];
         const matchedClasses = [query.toUpperCase(), normalizedQuery].filter(

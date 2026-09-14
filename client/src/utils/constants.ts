@@ -1,7 +1,11 @@
 export const POLICY_TYPES = ['motor', 'health', 'life', 'non_motor', 'other'];
 
 export const MOTOR_VEHICLE_CLASSES = [
-    'TW', 'PVT', 'PCV', 'GCV', 'SAOD_TW', 'SAOD_PVT', 'Misc_D', 'CPA', 'Others'
+    'TW', 'PVT', 'PCV', 'GCV', 'SAOD_TW', 'SAOD_PVT', 'BUNDLED_POLICY_TW', 'BUNDLED_POLICY_PVT', 'Misc_D', 'CPA', 'Others'
+];
+
+export const DUAL_DATE_VEHICLE_CLASSES: string[] = [
+    'SAOD_TW', 'SAOD_PVT', 'BUNDLED_POLICY_TW', 'BUNDLED_POLICY_PVT'
 ];
 
 export const NON_MOTOR_VEHICLE_CLASSES = [
