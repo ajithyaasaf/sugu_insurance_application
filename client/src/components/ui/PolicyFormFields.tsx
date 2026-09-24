@@ -444,29 +444,45 @@ const PolicyFormFields: React.FC<PolicyFormFieldsProps> = ({ form, setForm, comp
                         />
                         {errors.vehicleNumber && <p className="text-xs text-red-500 mt-1">{errors.vehicleNumber}</p>}
                     </div>
-                    <div><label className="label">Make {isRequired ? '*' : ''}</label>
-                        <input className={`input ${errors.make ? 'border-red-500 focus:ring-red-400' : ''}`} data-error-field={errors.make ? 'true' : undefined} placeholder="e.g. Maruti" value={form.make || ''} onChange={(e) => handleChange('make', e.target.value)} />
-                        {errors.make && <p className="text-xs text-red-500 mt-1">{errors.make}</p>}
-                    </div>
-                    <div><label className="label">Model {isRequired ? '*' : ''}</label>
-                        <input className={`input ${errors.model ? 'border-red-500 focus:ring-red-400' : ''}`} data-error-field={errors.model ? 'true' : undefined} placeholder="e.g. Swift" value={form.model || ''} onChange={(e) => handleChange('model', e.target.value)} />
-                        {errors.model && <p className="text-xs text-red-500 mt-1">{errors.model}</p>}
-                    </div>
-                    <div><label className="label">Date of Registration</label>
-                        <input type="date" className="input" value={form.registrationDate?.split('T')[0] || ''} onChange={(e) => handleChange('registrationDate', e.target.value)} />
-                    </div>
+
                     <div><label className="label">Vehicle Class</label>
                         <SearchableSelect
                             options={MOTOR_VEHICLE_CLASSES.map(c => ({ value: c, label: formatVehicleClass(c) }))}
                             value={form.vehicleClass || ''}
-                            onChange={(val) => handleChange('vehicleClass', val)}
+                            onChange={(val) => {
+                                handleChange('vehicleClass', val);
+                                if (val === 'CPA') {
+                                    handleChange('make', '');
+                                    handleChange('model', '');
+                                    handleChange('idv', '');
+                                    if (typeof setErrors === 'function') {
+                                        setErrors((prev: any) => ({ ...prev, make: '', model: '' }));
+                                    }
+                                }
+                            }}
                             allLabel="Select Class"
                             hasError={!!errors.vehicleClass}
                         />
                     </div>
-                    <div><label className="label">IDV</label>
-                        <input type="number" min="0" step="0.01" className="input" value={form.idv || ''} onChange={(e) => handleChange('idv', e.target.value)} />
-                    </div>
+
+                    {form.vehicleClass !== 'CPA' && (
+                        <>
+                            <div><label className="label">Make {isRequired ? '*' : ''}</label>
+                                <input className={`input ${errors.make ? 'border-red-500 focus:ring-red-400' : ''}`} data-error-field={errors.make ? 'true' : undefined} placeholder="e.g. Maruti" value={form.make || ''} onChange={(e) => handleChange('make', e.target.value)} />
+                                {errors.make && <p className="text-xs text-red-500 mt-1">{errors.make}</p>}
+                            </div>
+                            <div><label className="label">Model {isRequired ? '*' : ''}</label>
+                                <input className={`input ${errors.model ? 'border-red-500 focus:ring-red-400' : ''}`} data-error-field={errors.model ? 'true' : undefined} placeholder="e.g. Swift" value={form.model || ''} onChange={(e) => handleChange('model', e.target.value)} />
+                                {errors.model && <p className="text-xs text-red-500 mt-1">{errors.model}</p>}
+                            </div>
+                            <div><label className="label">Date of Registration</label>
+                                <input type="date" className="input" value={form.registrationDate?.split('T')[0] || ''} onChange={(e) => handleChange('registrationDate', e.target.value)} />
+                            </div>
+                            <div><label className="label">IDV</label>
+                                <input type="number" min="0" step="0.01" className="input" value={form.idv || ''} onChange={(e) => handleChange('idv', e.target.value)} />
+                            </div>
+                        </>
+                    )}
                 </>
             )}
 
@@ -572,6 +588,7 @@ const PolicyFormFields: React.FC<PolicyFormFieldsProps> = ({ form, setForm, comp
 
             <div><label className="label">Payment Method</label>
                 <SearchableSelect
+                    dropUp={true}
                     options={['Cash', 'UPI', 'Cheque', 'Online', 'NEFT', 'APD'].map(m => ({ value: m, label: m }))}
                     value={form.paymentMethod || ''}
                     onChange={(val) => handleChange('paymentMethod', val)}

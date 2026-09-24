@@ -186,7 +186,7 @@ const PolicyDetail: React.FC = () => {
                                 <div>
                                     <p className="text-xs font-bold text-surface-400 uppercase tracking-wider">Policy Details</p>
                                     <p className="text-sm font-medium text-surface-900">
-                                        {policy.policyType === 'motor' ? `${policy.make || ''} ${policy.model || ''}`.trim() || 'Motor' : policy.productName || policy.policyType}
+                                        {policy.policyType === 'motor' ? `${policy.make || ''} ${policy.model || ''}`.trim() || (policy.vehicleClass ? formatVehicleClass(policy.vehicleClass) : 'Motor') : policy.productName || policy.policyType}
                                     </p>
                                     <p className="text-xs text-surface-500">No: {policy.policyNumber || 'N/A'}</p>
                                 </div>

@@ -17,6 +17,7 @@ interface SearchableSelectProps {
     disabled?: boolean;
     required?: boolean;
     hasError?: boolean;
+    dropUp?: boolean;
 }
 
 const SearchableSelect: React.FC<SearchableSelectProps> = ({
@@ -30,10 +31,12 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
     disabled = false,
     required = false,
     hasError = false,
+    dropUp,
 }) => {
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState('');
     const [highlightedIndex, setHighlightedIndex] = useState(0);
+    const [calculatedDropUp, setCalculatedDropUp] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
     const searchRef = useRef<HTMLInputElement>(null);
     const listRef = useRef<HTMLUListElement>(null);
@@ -45,9 +48,9 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
         .map(v => options.find(o => o.value === v)?.label)
         .filter(Boolean) as string[];
 
-    const displayValue = multiple 
-        ? selectedLabels.length > 0 
-            ? selectedLabels.join(', ') 
+    const displayValue = multiple
+        ? selectedLabels.length > 0
+            ? selectedLabels.join(', ')
             : (allLabel || placeholder)
         : (options.find(o => o.value === value)?.label || allLabel || placeholder);
 
@@ -66,6 +69,27 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
     useEffect(() => {
         setHighlightedIndex(0);
     }, [search]);
+
+    useEffect(() => {
+        if (open && containerRef.current) {
+            if (dropUp !== undefined) {
+                setCalculatedDropUp(dropUp);
+                return;
+            }
+            const rect = containerRef.current.getBoundingClientRect();
+            const scrollParent = containerRef.current.closest('.overflow-y-auto') || containerRef.current.closest('.overflow-auto');
+            let spaceBelow = window.innerHeight - rect.bottom;
+            if (scrollParent) {
+                const parentRect = scrollParent.getBoundingClientRect();
+                spaceBelow = Math.min(spaceBelow, parentRect.bottom - rect.bottom);
+            }
+            if (spaceBelow < 260 && rect.top > 180) {
+                setCalculatedDropUp(true);
+            } else {
+                setCalculatedDropUp(false);
+            }
+        }
+    }, [open, dropUp]);
 
     useEffect(() => {
         if (open && searchRef.current) {
@@ -199,7 +223,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
                     type="text"
                     required={required}
                     value={multiple ? (values.length > 0 ? 'selected' : '') : (value as string)}
-                    onChange={() => {}}
+                    onChange={() => { }}
                     className="absolute opacity-0 w-0 h-0 pointer-events-none"
                     tabIndex={-1}
                 />
@@ -212,12 +236,15 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
             </button>
 
             {open && (
-                <div className="
-                    absolute z-50 top-full left-0 right-0 mt-1
+                <div className={`
+                    absolute z-50 left-0 right-0
+                    ${calculatedDropUp
+                        ? 'bottom-full mb-1 slide-in-from-bottom-1'
+                        : 'top-full mt-1 slide-in-from-top-1'}
                     bg-white border border-surface-200 rounded-xl shadow-lg shadow-surface-900/10
-                    animate-in fade-in slide-in-from-top-1 duration-150
+                    animate-in fade-in duration-150
                     overflow-hidden
-                ">
+                `}>
                     <div className="p-2 border-b border-surface-100">
                         <div className="flex items-center gap-2 px-2 py-1.5 bg-surface-50 rounded-lg">
                             <HiSearch className="w-3.5 h-3.5 text-surface-400 flex-shrink-0" />
@@ -237,7 +264,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
                         </div>
                         {multiple && !search && (
                             <div className="mt-2 px-2 flex justify-between items-center">
-                                <button 
+                                <button
                                     onClick={toggleAll}
                                     className="text-[10px] font-bold text-primary-600 hover:text-primary-700 uppercase tracking-wider"
                                 >
@@ -282,11 +309,11 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
                                     >
                                         <div className="flex items-center gap-2 truncate">
                                             {multiple && (
-                                                <input 
-                                                    type="checkbox" 
-                                                    checked={values.includes(opt.value)} 
-                                                    readOnly 
-                                                    className="rounded border-surface-300 text-primary-600 focus:ring-primary-500 w-3.5 h-3.5" 
+                                                <input
+                                                    type="checkbox"
+                                                    checked={values.includes(opt.value)}
+                                                    readOnly
+                                                    className="rounded border-surface-300 text-primary-600 focus:ring-primary-500 w-3.5 h-3.5"
                                                 />
                                             )}
                                             <span className={`truncate ${isSelected && multiple ? 'font-semibold text-surface-900' : ''}`}>

@@ -610,7 +610,7 @@ export class PolicyService {
                     tp: data.tp ?? originalPolicy.tp,
                     tax: data.tax ?? originalPolicy.tax,
                     totalPremium: data.totalPremium ?? originalPolicy.totalPremium,
-                    paymentMethod: data.paymentMethod || originalPolicy.paymentMethod,
+                    paymentMethod: data.paymentMethod || originalPolicy.paymentMethod || 'Online',
                     policyOrigin: 'in_system_renewal',
                     ncbPercentage: data.ncbPercentage ?? null,
                     dealerId: data.dealerId || originalPolicy.dealerId,
@@ -644,6 +644,7 @@ export class PolicyService {
                         paidDate: new Date(),
                         dueDate: renewedPolicy.startDate,
                         status: 'paid',
+                        notes: `Renewal payment via ${renewedPolicy.paymentMethod || 'Online'}`,
                         createdBy: role,
                     }
                 });
@@ -659,6 +660,7 @@ export class PolicyService {
                         paidDate: new Date(),
                         dueDate: renewedPolicy.startDate,
                         status: 'partial',
+                        notes: `Renewal partial payment via ${renewedPolicy.paymentMethod || 'Online'}`,
                         createdBy: role,
                     }
                 });
@@ -672,6 +674,7 @@ export class PolicyService {
                         amount: fullPremium,
                         dueDate: renewedPolicy.startDate,
                         status: 'pending',
+                        notes: 'Renewal payment pending',
                         createdBy: role,
                     }
                 });

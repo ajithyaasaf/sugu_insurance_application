@@ -97,6 +97,7 @@ const Policies: React.FC = () => {
     const [editStatus, setEditStatus] = useState<'active' | 'cancelled'>('active');
     const [renewForm, setRenewForm] = useState({
         companyId: '', startDate: '', expiryDate: '', premiumAmount: '', totalPremium: '', policyNumber: '', paidAmount: '',
+        paymentMethod: 'Online',
         od: '', tp: '', tax: '', policyOrigin: 'in_system_renewal', ncbPercentage: '', idv: '', tpStartDate: '', tpEndDate: ''
     });
     const [renewingParentHadClaim, setRenewingParentHadClaim] = useState(false);
@@ -197,8 +198,10 @@ const Policies: React.FC = () => {
 
         if (form.policyType === 'motor') {
             if (!form.vehicleNumber) errs.vehicleNumber = 'Vehicle number is required';
-            if (!form.make) errs.make = 'Make is required';
-            if (!form.model) errs.model = 'Model is required';
+            if (form.vehicleClass !== 'CPA') {
+                if (!form.make) errs.make = 'Make is required';
+                if (!form.model) errs.model = 'Model is required';
+            }
         }
         return errs;
     };
@@ -302,6 +305,7 @@ const Policies: React.FC = () => {
             totalPremium: (p.totalPremium || p.premiumAmount).toString(),
             policyNumber: '',
             paidAmount: '',
+            paymentMethod: p.paymentMethod || 'Online',
             od: p.od?.toString() || '',
             tp: p.tp?.toString() || '',
             tax: p.tax?.toString() || '',
@@ -348,6 +352,7 @@ const Policies: React.FC = () => {
                 tp: renewForm.tp ? parseFloat(renewForm.tp) : undefined,
                 tax: renewForm.tax ? parseFloat(renewForm.tax) : undefined,
                 paidAmount: renewForm.paidAmount ? parseFloat(renewForm.paidAmount) : undefined,
+                paymentMethod: renewForm.paymentMethod || undefined,
                 ncbPercentage: renewForm.ncbPercentage ? parseFloat(renewForm.ncbPercentage.toString()) : undefined,
                 idv: (renewForm.idv !== '' && renewForm.idv !== undefined) ? parseFloat(renewForm.idv) : undefined,
                 tpStartDate: isDualDate && renewForm.tpStartDate ? renewForm.tpStartDate : null,
@@ -769,10 +774,12 @@ const Policies: React.FC = () => {
                                     <label className="label">Tax (GST)</label>
                                     <input type="number" min="0" step="0.01" className="input" value={renewForm.tax} onChange={(e) => handleRenewChange('tax', e.target.value)} />
                                 </div>
-                                <div>
-                                    <label className="label">IDV (Vehicle Value)</label>
-                                    <input type="number" min="0" step="0.01" className="input" value={renewForm.idv} onChange={(e) => handleRenewChange('idv', e.target.value)} />
-                                </div>
+                                {renewingPolicy?.vehicleClass !== 'CPA' && (
+                                    <div>
+                                        <label className="label">IDV (Vehicle Value)</label>
+                                        <input type="number" min="0" step="0.01" className="input" value={renewForm.idv} onChange={(e) => handleRenewChange('idv', e.target.value)} />
+                                    </div>
+                                )}
                             </>
                         )}
 
@@ -787,8 +794,19 @@ const Policies: React.FC = () => {
                             <input type="number" min="0" step="0.01" className="input" value={renewForm.totalPremium} onChange={(e) => handleRenewChange('totalPremium', e.target.value)} />
                         </div>
 
-                        <div className="col-span-full">
-                            <label className="label">Initial Paid Amount (₹)</label>
+                        <div>
+                            <div className="flex items-center justify-between mb-1.5">
+                                <label className="text-sm font-medium text-surface-700">Initial Paid Amount (₹)</label>
+                                {(parseFloat(renewForm.totalPremium || renewForm.premiumAmount) > 0) && (
+                                    <button
+                                        type="button"
+                                        onClick={() => handleRenewChange('paidAmount', renewForm.totalPremium || renewForm.premiumAmount)}
+                                        className="text-xs text-primary-600 hover:text-primary-700 font-semibold"
+                                    >
+                                        Fill Full (₹{renewForm.totalPremium || renewForm.premiumAmount})
+                                    </button>
+                                )}
+                            </div>
                             <input
                                 type="number"
                                 min="0"
@@ -798,6 +816,17 @@ const Policies: React.FC = () => {
                                 placeholder="Leave empty if pending"
                                 value={renewForm.paidAmount}
                                 onChange={(e) => handleRenewChange('paidAmount', e.target.value)}
+                            />
+                        </div>
+
+                        <div>
+                            <label className="label">Payment Method</label>
+                            <SearchableSelect
+                                dropUp={true}
+                                options={['Cash', 'UPI', 'Cheque', 'Online', 'NEFT', 'APD'].map(m => ({ value: m, label: m }))}
+                                value={renewForm.paymentMethod || 'Online'}
+                                onChange={(val) => handleRenewChange('paymentMethod', val)}
+                                placeholder="Select Payment Method"
                             />
                         </div>
                     </div>

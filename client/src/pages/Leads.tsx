@@ -315,12 +315,15 @@ const Leads: React.FC = () => {
         // Motor-specific validation matching Policies.tsx direct creation
         if (policyType === 'motor') {
             const vehicleNumber = convertingLead?.vehicleNumber || convertForm.vehicleNumber;
+            const vehicleClass = convertingLead?.vehicleClass || convertForm.vehicleClass;
             const make = convertingLead?.make || convertForm.make;
             const model = convertingLead?.model || convertForm.model;
 
             if (!vehicleNumber) errs.vehicleNumber = 'Vehicle number is required';
-            if (!make) errs.make = 'Make is required';
-            if (!model) errs.model = 'Model is required';
+            if (vehicleClass !== 'CPA') {
+                if (!make) errs.make = 'Make is required';
+                if (!model) errs.model = 'Model is required';
+            }
         }
 
         if (Object.keys(errs).length > 0) {
@@ -606,8 +609,10 @@ const Leads: React.FC = () => {
                          !convertingLead.expiryDate ||
                          ((convertingLead.policyType || convertForm.policyType) === 'motor' && (
                              !convertingLead.vehicleNumber ||
-                             !convertingLead.make ||
-                             !convertingLead.model
+                             ((convertingLead.vehicleClass || convertForm.vehicleClass) !== 'CPA' && (
+                                 !convertingLead.make ||
+                                 !convertingLead.model
+                             ))
                          )))
                     ) && (
                         <div className="bg-surface-50 p-4 rounded-xl border border-surface-200 space-y-4 my-2">
@@ -788,7 +793,7 @@ const Leads: React.FC = () => {
                                                 {errors.vehicleNumber && <p className="text-xs text-red-500 mt-1">{errors.vehicleNumber}</p>}
                                             </div>
                                         )}
-                                        {!convertingLead?.make && (
+                                        {(convertingLead?.vehicleClass || convertForm.vehicleClass) !== 'CPA' && !convertingLead?.make && (
                                             <div>
                                                 <label className="label">Make *</label>
                                                 <input
@@ -803,7 +808,7 @@ const Leads: React.FC = () => {
                                                 {errors.make && <p className="text-xs text-red-500 mt-1">{errors.make}</p>}
                                             </div>
                                         )}
-                                        {!convertingLead?.model && (
+                                        {(convertingLead?.vehicleClass || convertForm.vehicleClass) !== 'CPA' && !convertingLead?.model && (
                                             <div>
                                                 <label className="label">Model *</label>
                                                 <input
