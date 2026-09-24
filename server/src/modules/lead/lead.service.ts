@@ -33,6 +33,8 @@ interface CreateLeadInput {
     ncbPercentage?: number | null;
     tpStartDate?: string | null;
     tpEndDate?: string | null;
+    referenceName?: string | null;
+    referenceLocation?: string | null;
 }
 
 interface UpdateLeadInput {
@@ -65,6 +67,8 @@ interface UpdateLeadInput {
     ncbPercentage?: number | null;
     tpStartDate?: string | null;
     tpEndDate?: string | null;
+    referenceName?: string | null;
+    referenceLocation?: string | null;
 }
 
 export class LeadService {
@@ -104,6 +108,8 @@ export class LeadService {
                 productName: data.policyType === 'motor' ? null : (data.productName || data.interestedProduct || null),
                 sumInsured: data.policyType === 'motor' ? null : (data.sumInsured ?? null),
                 ncbPercentage: data.ncbPercentage ?? null,
+                referenceName: data.referenceName || null,
+                referenceLocation: data.referenceLocation || null,
 
                 createdBy: role,
                 updatedBy: role,
@@ -222,6 +228,8 @@ export class LeadService {
                 dealerId: data.dealerId || undefined,
                 productName: data.productName !== undefined ? (data.policyType === 'motor' ? null : (data.productName || data.interestedProduct || null)) : undefined,
                 sumInsured: data.sumInsured !== undefined ? (data.policyType === 'motor' ? null : (data.sumInsured ?? null)) : undefined,
+                referenceName: data.referenceName !== undefined ? (data.referenceName || null) : undefined,
+                referenceLocation: data.referenceLocation !== undefined ? (data.referenceLocation || null) : undefined,
 
                 updatedBy: role,
             },
@@ -291,6 +299,8 @@ export class LeadService {
             tax?: number | null;
             totalPremium?: number | null;
             dealerId?: string | null;
+            referenceName?: string | null;
+            referenceLocation?: string | null;
             tpStartDate?: string | null;
             tpEndDate?: string | null;
         }
@@ -410,6 +420,8 @@ export class LeadService {
                         tax: tax || null,
                         totalPremium: finalTotal || null,
                         dealerId: lead.dealerId || extra.dealerId || null,
+                        referenceName: extra.referenceName || lead.referenceName || null,
+                        referenceLocation: extra.referenceLocation || lead.referenceLocation || null,
                         policyOrigin: (extra.policyOrigin || lead.policyOrigin || 'fresh') as any,
                         ncbPercentage: policyType === 'motor' ? (extra.ncbPercentage ?? lead.ncbPercentage ?? null) : null,
                         tpStartDate: policyType === 'motor' ? (lead.tpStartDate || (extra.tpStartDate ? new Date(extra.tpStartDate) : null)) : null,

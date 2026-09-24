@@ -44,6 +44,8 @@ export class SearchService {
                         { vehicleNumber: { contains: query, mode: 'insensitive' } },
                         { make: { contains: query, mode: 'insensitive' } },
                         { model: { contains: query, mode: 'insensitive' } },
+                        { referenceName: { contains: query, mode: 'insensitive' } },
+                        { referenceLocation: { contains: query, mode: 'insensitive' } },
                         ...(matchedClasses.length > 0 ? [{ vehicleClass: { in: matchedClasses as any } }] : [])
                     ],
                 },
@@ -59,6 +61,8 @@ export class SearchService {
                         { productName: { contains: query, mode: 'insensitive' } },
                         { make: { contains: query, mode: 'insensitive' } },
                         { model: { contains: query, mode: 'insensitive' } },
+                        { referenceName: { contains: query, mode: 'insensitive' } },
+                        { referenceLocation: { contains: query, mode: 'insensitive' } },
                         ...(matchedClasses.length > 0 ? [{ vehicleClass: { in: matchedClasses as any } }] : [])
                     ],
                 },

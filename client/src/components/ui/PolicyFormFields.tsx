@@ -32,6 +32,23 @@ const PolicyFormFields: React.FC<PolicyFormFieldsProps> = ({ form, setForm, comp
     type PaymentMode = 'pending' | 'partial' | 'paid';
     const [paymentMode, setPaymentMode] = useState<PaymentMode>('pending');
 
+    type SourcingChannel = 'direct' | 'dealer' | 'reference';
+    const [sourceChannel, setSourceChannel] = useState<SourcingChannel>(() => {
+        if (form.referenceName || form.referenceLocation) return 'reference';
+        if (form.dealerId) return 'dealer';
+        return 'direct';
+    });
+
+    useEffect(() => {
+        if (form.referenceName || form.referenceLocation) {
+            setSourceChannel('reference');
+        } else if (form.dealerId) {
+            setSourceChannel('dealer');
+        } else {
+            setSourceChannel('direct');
+        }
+    }, [form.dealerId, form.referenceName, form.referenceLocation]);
+
     useEffect(() => {
         setCustomerList(customers);
     }, [customers]);
@@ -274,15 +291,119 @@ const PolicyFormFields: React.FC<PolicyFormFieldsProps> = ({ form, setForm, comp
                 {errors.policyNumber && <p className="text-xs text-red-500 mt-1">{errors.policyNumber}</p>}
             </div>
 
-            <div>
-                <label className="label">Dealer</label>
-                <SearchableSelect
-                    options={dealers?.map(d => ({ value: d?.id, label: d?.name })) || []}
-                    value={form.dealerId || ''}
-                    onChange={(val) => handleChange('dealerId', val)}
-                    allLabel="No Dealer"
-                    hasError={!!errors.dealerId}
-                />
+            {/* Business Sourcing Channel (Direct / Dealer / Reference) */}
+            <div className="col-span-full bg-surface-50/75 border border-surface-200/80 rounded-xl p-3.5 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                        <label className="text-xs font-bold text-surface-700 uppercase tracking-wider block">
+                            Business Sourcing
+                        </label>
+                        <p className="text-[11px] text-surface-500">
+                            Specify whether this business came directly, via a dealer, or through a personal reference.
+                        </p>
+                    </div>
+                    <div className="inline-flex p-1 bg-surface-200/70 rounded-xl text-xs font-semibold shrink-0">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setSourceChannel('direct');
+                                handleChange('dealerId', '');
+                                handleChange('referenceName', '');
+                                handleChange('referenceLocation', '');
+                            }}
+                            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${sourceChannel === 'direct' ? 'bg-white text-surface-900 shadow-sm font-bold' : 'text-surface-600 hover:text-surface-900'}`}
+                        >
+                            ⭐ Direct
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setSourceChannel('dealer');
+                                handleChange('referenceName', '');
+                                handleChange('referenceLocation', '');
+                            }}
+                            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${sourceChannel === 'dealer' ? 'bg-white text-primary-700 shadow-sm font-bold' : 'text-surface-600 hover:text-surface-900'}`}
+                        >
+                            🏢 Dealer
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setSourceChannel('reference');
+                                handleChange('dealerId', '');
+                            }}
+                            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${sourceChannel === 'reference' ? 'bg-white text-blue-700 shadow-sm font-bold' : 'text-surface-600 hover:text-surface-900'}`}
+                        >
+                            👤 Reference
+                        </button>
+                    </div>
+                </div>
+
+                {sourceChannel === 'dealer' && (
+                    <div className="pt-2 border-t border-surface-200/60">
+                        <label className="label">Dealer *</label>
+                        <SearchableSelect
+                            options={dealers?.map(d => ({ value: d?.id, label: d?.name })) || []}
+                            value={form.dealerId || ''}
+                            onChange={(val) => handleChange('dealerId', val)}
+                            allLabel="Select Dealer"
+                            hasError={!!errors.dealerId}
+                        />
+                    </div>
+                )}
+
+                {sourceChannel === 'reference' && (
+                    <div className="pt-2 border-t border-surface-200/60 space-y-3">
+                        {customerList && customerList.length > 0 && (
+                            <div className="bg-blue-50/60 border border-blue-100 rounded-lg p-2.5">
+                                <div className="flex items-center justify-between gap-2 mb-1.5">
+                                    <span className="text-[11px] font-semibold text-blue-900">
+                                        💡 Shortcut: Is the referrer an existing customer?
+                                    </span>
+                                </div>
+                                <SearchableSelect
+                                    options={customerList.map(c => ({
+                                        value: c.id,
+                                        label: `${c.name}${c.phone ? ` (${c.phone})` : ''}${c.address ? ` - ${c.address}` : ''}`
+                                    }))}
+                                    value=""
+                                    onChange={(selectedCustId) => {
+                                        const cust = customerList.find(c => c.id === selectedCustId);
+                                        if (cust) {
+                                            handleChange('referenceName', cust.name);
+                                            if (cust.address) {
+                                                handleChange('referenceLocation', cust.address);
+                                            }
+                                        }
+                                    }}
+                                    allLabel="Or type below for friends / outside contacts"
+                                    placeholder="Quick pick from existing customers..."
+                                />
+                            </div>
+                        )}
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label className="label">Reference Name</label>
+                                <input
+                                    className="input"
+                                    value={form.referenceName || ''}
+                                    onChange={(e) => handleChange('referenceName', e.target.value)}
+                                    placeholder="e.g. Ramesh Kumar / Dr. Suresh"
+                                />
+                            </div>
+                            <div>
+                                <label className="label">Reference Location</label>
+                                <input
+                                    className="input"
+                                    value={form.referenceLocation || ''}
+                                    onChange={(e) => handleChange('referenceLocation', e.target.value)}
+                                    placeholder="e.g. Madurai / Anna Nagar"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {form.policyType && form.policyType !== 'motor' && (

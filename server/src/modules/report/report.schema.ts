@@ -35,7 +35,7 @@ export type ExportFormat = z.infer<typeof ExportFormat>;
 const filtersSchema = z.object({
     companyId:    z.string().uuid().optional(),
     companyIds:   z.union([z.string(), z.array(z.string())]).optional(),
-    dealerId:     z.union([z.string().uuid(), z.literal('direct')]).optional(),
+    dealerId:     z.union([z.string().uuid(), z.literal('direct'), z.literal('reference')]).optional(),
     customerId:   z.string().uuid().optional(),
     customerIds:  z.union([z.string(), z.array(z.string())]).optional(),
     policyType:   z.string().optional(),

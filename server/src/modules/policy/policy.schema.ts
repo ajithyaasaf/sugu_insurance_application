@@ -32,6 +32,8 @@ export const createPolicySchema = z.object({
         ncbPercentage: z.number().min(0).max(50).optional().nullable(),
         tpStartDate: z.string().optional().nullable(),
         tpEndDate: z.string().optional().nullable(),
+        referenceName: z.string().optional().nullable().or(z.literal('')),
+        referenceLocation: z.string().optional().nullable().or(z.literal('')),
     }),
 });
 
@@ -67,6 +69,8 @@ export const updatePolicySchema = z.object({
         ncbPercentage: z.number().min(0).max(50).optional().nullable(),
         tpStartDate: z.string().optional().nullable(),
         tpEndDate: z.string().optional().nullable(),
+        referenceName: z.string().optional().nullable().or(z.literal('')),
+        referenceLocation: z.string().optional().nullable().or(z.literal('')),
     }),
 });
 

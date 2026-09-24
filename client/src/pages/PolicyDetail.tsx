@@ -156,16 +156,28 @@ const PolicyDetail: React.FC = () => {
                                 </div>
                             </div>
                             <div className="flex items-start gap-3">
-                                <div className={`p-2 rounded-lg ${policy.dealer ? 'bg-purple-50 text-purple-600' : 'bg-surface-100 text-surface-500'}`}>
+                                <div className={`p-2 rounded-lg ${
+                                    policy.dealer 
+                                        ? 'bg-purple-50 text-purple-600' 
+                                        : policy.referenceName 
+                                            ? 'bg-amber-50 text-amber-600' 
+                                            : 'bg-surface-100 text-surface-500'
+                                }`}>
                                     <HiOutlineUserGroup className="w-5 h-5" />
                                 </div>
                                 <div>
-                                    <p className="text-xs font-bold text-surface-400 uppercase tracking-wider">Source / Dealer</p>
+                                    <p className="text-xs font-bold text-surface-400 uppercase tracking-wider">
+                                        {policy.dealer ? 'Dealer' : policy.referenceName ? 'Reference' : 'Source / Sourcing'}
+                                    </p>
                                     <p className="text-sm font-medium text-surface-900">
-                                        {policy.dealer ? policy.dealer.name : 'Direct Policy'}
+                                        {policy.dealer ? policy.dealer.name : policy.referenceName ? policy.referenceName : 'Direct Policy'}
                                     </p>
                                     <p className="text-xs text-surface-500">
-                                        {policy.dealer ? (policy.dealer.phone || 'Referred') : 'Direct'}
+                                        {policy.dealer 
+                                            ? (policy.dealer.phone || 'Dealer Referred') 
+                                            : policy.referenceName 
+                                                ? (policy.referenceLocation ? `📍 ${policy.referenceLocation}` : 'Personal Reference') 
+                                                : 'Direct Business'}
                                     </p>
                                 </div>
                             </div>

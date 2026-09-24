@@ -61,6 +61,9 @@ const SOURCE_COLUMNS: Record<string, { key: string; label: string }[]> = {
         { key: 'expiryDate', label: 'Expiry Date' },
         { key: 'status', label: 'Status' },
         { key: 'policyOrigin', label: 'Origin' },
+        { key: 'dealerName', label: 'Dealer / Source' },
+        { key: 'referenceName', label: 'Reference' },
+        { key: 'referenceLocation', label: 'Ref. Location' },
     ],
     'policies-expired': [
         { key: 'policyNumber', label: 'Policy No.' },
@@ -82,6 +85,9 @@ const SOURCE_COLUMNS: Record<string, { key: string; label: string }[]> = {
         { key: 'status', label: 'Status' },
         { key: 'policyOrigin', label: 'Origin' },
         { key: 'ncbPercentage', label: 'NCB (%)' },
+        { key: 'dealerName', label: 'Dealer / Source' },
+        { key: 'referenceName', label: 'Reference' },
+        { key: 'referenceLocation', label: 'Ref. Location' },
     ],
     payments: [
         { key: 'startDate', label: 'Start Date' },
@@ -253,6 +259,9 @@ function buildPolicyWhere(userId: string, role: string, filters?: ReportFilters)
     }
     if (filters?.dealerId === 'direct') {
         where.dealerId = null;
+        where.referenceName = null;
+    } else if (filters?.dealerId === 'reference') {
+        where.referenceName = { not: null };
     } else if (filters?.dealerId) {
         where.dealerId = filters.dealerId;
     }
@@ -285,6 +294,9 @@ function buildPolicyExpiredWhere(userId: string, role: string, filters?: ReportF
     }
     if (filters?.dealerId === 'direct') {
         where.dealerId = null;
+        where.referenceName = null;
+    } else if (filters?.dealerId === 'reference') {
+        where.referenceName = { not: null };
     } else if (filters?.dealerId) {
         where.dealerId = filters.dealerId;
     }
@@ -659,7 +671,9 @@ export class ReportService {
             customerName: r.customer?.name || '—',
             customerPhone: r.customer?.phone || '—',
             companyName: r.company?.name || '—',
-            dealerName: r.dealer?.name || 'Direct',
+            dealerName: r.dealer?.name || (r.referenceName ? `Ref: ${r.referenceName}` : 'Direct'),
+            referenceName: r.referenceName || '—',
+            referenceLocation: r.referenceLocation || '—',
             policyType: r.policyType,
             productName: r.policyType === 'motor' ? `${r.make || ''} ${r.model || ''}`.trim() || 'Motor' : r.productName || '—',
             make: r.make || '—',
@@ -702,7 +716,9 @@ export class ReportService {
             customerName: r.customer?.name || '—',
             customerPhone: r.customer?.phone || '—',
             companyName: r.company?.name || '—',
-            dealerName: r.dealer?.name || 'Direct',
+            dealerName: r.dealer?.name || (r.referenceName ? `Ref: ${r.referenceName}` : 'Direct'),
+            referenceName: r.referenceName || '—',
+            referenceLocation: r.referenceLocation || '—',
             policyType: r.policyType,
             productName: r.policyType === 'motor' ? `${r.make || ''} ${r.model || ''}`.trim() || 'Motor' : r.productName || '—',
             make: r.make || '—',

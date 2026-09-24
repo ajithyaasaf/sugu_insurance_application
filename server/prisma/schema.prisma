@@ -85,6 +85,8 @@ model Lead {
   sumInsured        Float?
   tpStartDate       DateTime?
   tpEndDate         DateTime?
+  referenceName     String?
+  referenceLocation String?
   user              User                @relation(fields: [userId], references: [id])
 
   @@index([userId])
@@ -168,6 +170,8 @@ model Policy {
   policyOrigin       PolicyOrigin        @default(fresh)
   tpStartDate        DateTime?
   tpEndDate          DateTime?
+  referenceName      String?
+  referenceLocation  String?
   claims             Claim[]
   commissionPolicies CommissionPolicy[]
   followUps          FollowUp[]

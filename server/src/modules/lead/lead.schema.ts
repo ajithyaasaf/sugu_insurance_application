@@ -32,6 +32,8 @@ export const createLeadSchema = z.object({
         ncbPercentage: z.number().min(0).max(50).optional().nullable(),
         tpStartDate: z.string().optional().nullable(),
         tpEndDate: z.string().optional().nullable(),
+        referenceName: z.string().optional().nullable().or(z.literal('')),
+        referenceLocation: z.string().optional().nullable().or(z.literal('')),
     }),
 });
 
@@ -67,6 +69,8 @@ export const updateLeadSchema = z.object({
         ncbPercentage: z.number().min(0).max(50).optional().nullable(),
         tpStartDate: z.string().optional().nullable(),
         tpEndDate: z.string().optional().nullable(),
+        referenceName: z.string().optional().nullable().or(z.literal('')),
+        referenceLocation: z.string().optional().nullable().or(z.literal('')),
     }),
     params: z.object({
         id: z.string().uuid(),
@@ -103,5 +107,7 @@ export const convertLeadSchema = z.object({
         dealerId: z.string().optional().nullable(),
         tpStartDate: z.string().optional().nullable(),
         tpEndDate: z.string().optional().nullable(),
+        referenceName: z.string().optional().nullable().or(z.literal('')),
+        referenceLocation: z.string().optional().nullable().or(z.literal('')),
     }),
 });

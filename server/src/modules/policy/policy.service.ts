@@ -34,6 +34,8 @@ interface CreatePolicyInput {
     ncbPercentage?: number | null;
     tpStartDate?: string | null;
     tpEndDate?: string | null;
+    referenceName?: string | null;
+    referenceLocation?: string | null;
 }
 
 /** Only these two statuses can be set manually on an existing policy. */
@@ -117,7 +119,9 @@ export class PolicyService {
                     paymentMethod: data.paymentMethod,
                     policyOrigin: (data.policyOrigin as any) || 'fresh',
                     ncbPercentage: data.ncbPercentage ?? null,
-                    dealerId: data.dealerId,
+                    dealerId: data.dealerId || null,
+                    referenceName: data.referenceName || null,
+                    referenceLocation: data.referenceLocation || null,
                     tpStartDate: data.tpStartDate ? new Date(data.tpStartDate) : null,
                     tpEndDate: data.tpEndDate ? new Date(data.tpEndDate) : null,
                     createdBy: role,
@@ -241,6 +245,8 @@ export class PolicyService {
                     { customer: { name: { contains: search, mode: 'insensitive' } } },
                     { policyNumber: { contains: search, mode: 'insensitive' } },
                     { vehicleNumber: { contains: search, mode: 'insensitive' } },
+                    { referenceName: { contains: search, mode: 'insensitive' } },
+                    { referenceLocation: { contains: search, mode: 'insensitive' } },
                     ...(matchedClasses.length > 0 ? [{ vehicleClass: { in: matchedClasses as any } }] : [])
                 ],
             }),
@@ -256,7 +262,7 @@ export class PolicyService {
             ...(companyIds && {
                 companyId: { in: typeof companyIds === 'string' ? companyIds.split(',') : companyIds }
             }),
-            ...(dealerId === 'direct' ? { dealerId: null } : dealerId ? { dealerId } : {}),
+            ...(dealerId === 'direct' ? { dealerId: null, referenceName: null } : dealerId === 'reference' ? { referenceName: { not: null } } : dealerId ? { dealerId } : {}),
             ...(vehicleClass && { vehicleClass: vehicleClass as any }),
             ...(!isExpiringSoon && (dateFrom || dateTo) && {
                 startDate: {
@@ -608,6 +614,8 @@ export class PolicyService {
                     policyOrigin: 'in_system_renewal',
                     ncbPercentage: data.ncbPercentage ?? null,
                     dealerId: data.dealerId || originalPolicy.dealerId,
+                    referenceName: (data as any).referenceName !== undefined ? (data as any).referenceName : originalPolicy.referenceName,
+                    referenceLocation: (data as any).referenceLocation !== undefined ? (data as any).referenceLocation : originalPolicy.referenceLocation,
                     tpStartDate: data.tpStartDate ? new Date(data.tpStartDate) : (originalPolicy.tpStartDate ? new Date(originalPolicy.tpStartDate) : null),
                     tpEndDate: data.tpEndDate ? new Date(data.tpEndDate) : (originalPolicy.tpEndDate ? new Date(originalPolicy.tpEndDate) : null),
                     createdBy: role,
