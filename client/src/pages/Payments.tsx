@@ -7,12 +7,13 @@ import TableSkeleton from '../components/ui/TableSkeleton';
 import SearchableSelect from '../components/ui/SearchableSelect';
 import { formatDate, formatCurrency, getStatusColor, scrollToFirstError, formatVehicleClass } from '../utils/format';
 import toast from 'react-hot-toast';
-import { HiOutlinePlus, HiOutlineSearch, HiOutlinePencil, HiOutlineCreditCard, HiOutlineDocumentDownload, HiOutlineTag } from 'react-icons/hi';
+import { HiOutlinePlus, HiOutlineSearch, HiOutlinePencil, HiOutlineCreditCard, HiOutlineDocumentDownload, HiOutlineTag, HiOutlineCollection } from 'react-icons/hi';
 import { PAYMENT_STATUSES as statusOptions, VEHICLE_CLASSES } from '../utils/constants';
 import Button from '../components/ui/Button';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useAuth } from '../context/AuthContext';
+import BatchCollectionModal from '../components/payments/BatchCollectionModal';
 
 
 
@@ -33,6 +34,7 @@ const Payments: React.FC = () => {
     const [dateTo, setDateTo] = useState('');
     const [loading, setLoading] = useState(true);
     const [modalOpen, setModalOpen] = useState(false);
+    const [batchModalOpen, setBatchModalOpen] = useState(false);
     const [editing, setEditing] = useState<any>(null);
     const [form, setForm] = useState({
         customerId: '', policyId: '', amount: '', dueDate: '', paidDate: '', paidAmount: '', status: 'pending', notes: '',
@@ -269,12 +271,19 @@ const Payments: React.FC = () => {
         <div className="space-y-4 animate-fade-in">
             <div className="page-header">
                 <h1 className="page-title">Payments</h1>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                     {!isStaff && (
                         <Button onClick={exportPDF} className="btn-secondary flex items-center gap-1">
                             <HiOutlineDocumentDownload className="w-4 h-4" /> Export PDF
                         </Button>
                     )}
+                    
+                    <Button
+                        onClick={() => setBatchModalOpen(true)}
+                        className="btn-secondary flex items-center gap-1.5 text-primary-700 bg-primary-50 border-primary-200 hover:bg-primary-100"
+                    >
+                        <HiOutlineCollection className="w-4 h-4 text-primary-600" /> Batch Collection
+                    </Button>
                     <Button onClick={handleDetectOverdue} isLoading={isDetecting} className="btn-secondary text-amber-600">Detect Overdue</Button>
                     <button onClick={openCreate} className="btn-primary"><HiOutlinePlus className="w-4 h-4" /> Add Payment</button>
                 </div>
@@ -365,7 +374,14 @@ const Payments: React.FC = () => {
 
                                     return (
                                         <tr key={p.id}>
-                                            <td className="font-medium text-surface-900">{p.customer?.name}</td>
+                                            <td className="font-medium text-surface-900">
+                                                <div>{p.customer?.name}</div>
+                                                {p.paymentBatch && (
+                                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 mt-0.5" title={`Paid via Batch Receipt #${p.paymentBatch.receiptNo} from ${p.paymentBatch.payerName}`}>
+                                                        #{p.paymentBatch.receiptNo}
+                                                    </span>
+                                                )}
+                                            </td>
                                             <td className="text-xs">
                                                 <div className="flex flex-wrap items-center gap-1.5">
                                                     {p.policy?.productName || p.policy?.policyType || '—'} {p.policy?.vehicleNumber && `(${p.policy.vehicleNumber})`}
@@ -578,6 +594,12 @@ const Payments: React.FC = () => {
                 </form>
             </Modal>
 
+            
+            <BatchCollectionModal
+                isOpen={batchModalOpen}
+                onClose={() => setBatchModalOpen(false)}
+                onSuccess={() => fetchPayments(meta.page)}
+            />
             <button onClick={openCreate} className="fab lg:hidden"><HiOutlinePlus className="w-6 h-6" /></button>
         </div>
     );

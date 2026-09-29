@@ -24,6 +24,7 @@ model User {
   followUps    FollowUp[]
   leads        Lead[]
   payments     Payment[]
+  paymentBatches PaymentBatch[]
   policies     Policy[]
   policyOffers PolicyOffer[]
 
@@ -231,6 +232,8 @@ model Payment {
   notes      String?
   createdBy  String
   createdAt  DateTime      @default(now())
+  paymentBatchId String?
+  paymentBatch   PaymentBatch? @relation(fields: [paymentBatchId], references: [id], onDelete: SetNull)
   customer   Customer      @relation(fields: [customerId], references: [id])
   policy     Policy        @relation(fields: [policyId], references: [id])
   user       User          @relation(fields: [userId], references: [id])
@@ -240,6 +243,7 @@ model Payment {
   @@index([customerId])
   @@index([dueDate])
   @@index([status])
+  @@index([paymentBatchId])
   @@index([createdAt])
 }
 
@@ -438,4 +442,28 @@ model PolicyOffer {
   @@index([userId])
   @@index([companyId])
   @@index([createdAt])
+}
+
+model PaymentBatch {
+  id              String    @id @default(uuid())
+  userId          String
+  receiptNo       String    @unique
+  payerType       String    // 'dealer' | 'reference'
+  payerId         String?   // dealerId if dealer
+  payerName       String    // Dealer Name or referenceName
+  totalAmount     Float
+  paymentDate     DateTime  @default(now())
+  paymentMethod   String?   // cash, upi, cheque, bank_transfer
+  referenceNumber String?   // UTR / Cheque / Transaction ref
+  notes           String?
+  createdBy       String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user            User      @relation(fields: [userId], references: [id])
+  payments        Payment[]
+
+  @@index([userId])
+  @@index([payerName])
+  @@index([paymentDate])
 }

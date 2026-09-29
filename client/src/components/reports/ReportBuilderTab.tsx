@@ -130,7 +130,7 @@ const ReportBuilderTab: React.FC = () => {
             page,
             limit,
         }).then(r => r.data),
-        enabled: source !== 'customer-snapshot' || !!appliedFilters.customerId,
+        enabled: source !== 'customer-snapshot' || !!appliedFilters.customerId || (Array.isArray(appliedFilters.customerIds) && appliedFilters.customerIds.length > 0) || !!appliedFilters.customerIds,
     });
     const report = reportData?.data;
 
@@ -144,8 +144,9 @@ const ReportBuilderTab: React.FC = () => {
 
     const generateReport = useCallback(() => {
         if (source === 'customer-snapshot') {
-            if (!localFilters.customerId) {
-                toast.error('Please select a Customer for the statement.');
+            const hasCustomer = !!localFilters.customerId || (Array.isArray(localFilters.customerIds) && localFilters.customerIds.length > 0) || !!localFilters.customerIds;
+            if (!hasCustomer) {
+                toast.error('Please select at least one Customer for the statement.');
                 return;
             }
             if (!localFilters.dateFrom || !localFilters.dateTo) {
@@ -326,7 +327,8 @@ const ReportBuilderTab: React.FC = () => {
         try {
             toast.loading(`Compiling Full ${format.toUpperCase()} Portfolio Statement...`, { id: 'full-export' });
 
-            const fileTitle = `${report?.summary?.customerName || 'Customer'}_Portfolio_Statement`;
+            const cleanName = (report?.summary?.customerName || 'Customer').replace(/[^a-zA-Z0-9_\-]/g, '_');
+            const fileTitle = `${cleanName}_Portfolio_Statement`;
             const res = await api.post('/reports/export', {
                 source: 'customer-snapshot-full',
                 filters: Object.fromEntries(Object.entries(appliedFilters).filter(([_, v]) => v)),
@@ -500,24 +502,21 @@ const ReportBuilderTab: React.FC = () => {
                             {/* Customer */}
                             {showCustomerFilter && (
                                 <div>
-                                    <label className="label">{source === 'customer-snapshot' ? 'Customer' : 'Customers'}</label>
-                                    {source === 'customer-snapshot' ? (
-                                        <SearchableSelect
-                                            options={customers.map((c: any) => ({ value: c.id, label: `${c.name}${c.phone ? ` (${c.phone})` : ''}` }))}
-                                            value={localFilters.customerId || ''}
-                                            onChange={val => updateLocalFilter('customerId', val)}
-                                            allLabel="Select a Customer"
-                                            placeholder="Search customer..."
-                                        />
-                                    ) : (
-                                        <SearchableSelect
-                                            options={customers.map((c: any) => ({ value: c.id, label: `${c.name}${c.phone ? ` (${c.phone})` : ''}` }))}
-                                            value={localFilters.customerIds || []}
-                                            onChange={val => updateLocalFilter('customerIds', val)}
-                                            multiple={true}
-                                            placeholder="Select Customers"
-                                        />
-                                    )}
+                                    <label className="label">Customers</label>
+                                    <SearchableSelect
+                                        options={customers.map((c: any) => ({ value: c.id, label: `${c.name}${c.phone ? ` (${c.phone})` : ''}` }))}
+                                        value={localFilters.customerIds || (localFilters.customerId ? [localFilters.customerId] : [])}
+                                        onChange={val => {
+                                            updateLocalFilter('customerIds', val);
+                                            if (Array.isArray(val) && val.length === 1) {
+                                                updateLocalFilter('customerId', val[0]);
+                                            } else {
+                                                updateLocalFilter('customerId', undefined);
+                                            }
+                                        }}
+                                        multiple={true}
+                                        placeholder={source === 'customer-snapshot' ? "Select one or more Customers..." : "Select Customers"}
+                                    />
                                 </div>
                             )}
 
@@ -884,6 +883,7 @@ const ReportBuilderTab: React.FC = () => {
                                         vehicleNumber: c.policyType?.toLowerCase() === 'motor' ? c.vehicleNumber : c.productName
                                     }))}
                                     columns={[
+                                        { key: 'customerName', label: 'Customer' },
                                         { key: 'claimNumber', label: 'Claim No' },
                                         { key: 'policyNumber', label: 'Policy No' },
                                         { key: 'vehicleNumber', label: 'Vehicle / Detail' },
@@ -901,6 +901,7 @@ const ReportBuilderTab: React.FC = () => {
                                         vehicleClass: e.policyType?.toLowerCase() === 'motor' ? e.vehicleClass : '—'
                                     }))}
                                     columns={[
+                                        { key: 'customerName', label: 'Customer' },
                                         { key: 'policyNumber', label: 'Policy No' },
                                         { key: 'companyName', label: 'Insurer' },
                                         { key: 'vehicleClass', label: 'Vehicle Class' },

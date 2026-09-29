@@ -28,3 +28,23 @@ export const updatePaymentSchema = z.object({
 
 export type CreatePaymentInput = z.infer<typeof createPaymentSchema>['body'];
 export type UpdatePaymentInput = z.infer<typeof updatePaymentSchema>['body'];
+
+export const batchCollectSchema = z.object({
+    body: z.object({
+        payerType: z.enum(['dealer', 'reference']),
+        payerId: z.string().optional().nullable(),
+        payerName: z.string().min(1, 'Payer name is required'),
+        totalAmount: z.number().positive('Total amount must be greater than zero'),
+        paymentDate: z.string().min(1, 'Payment date is required'),
+        paymentMethod: z.string().optional().or(z.literal('')),
+        referenceNumber: z.string().optional().or(z.literal('')),
+        notes: z.string().optional().or(z.literal('')),
+        allocations: z.array(z.object({
+            policyId: z.string().min(1, 'Policy ID is required'),
+            paymentId: z.string().min(1, 'Payment ID is required'),
+            amount: z.number().min(0, 'Allocation amount cannot be negative'),
+        })).min(1, 'At least one policy allocation is required'),
+    }),
+});
+
+export type BatchCollectInput = z.infer<typeof batchCollectSchema>['body'];
