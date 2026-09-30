@@ -81,6 +81,7 @@ model Lead {
   dealerId          String?
   registrationDate  DateTime?
   ncbPercentage     Float?
+  discountPercentage Float?
   policyOrigin      PolicyOrigin?
   productName       String?
   sumInsured        Float?
@@ -168,6 +169,7 @@ model Policy {
   registrationDate   DateTime?
   offer              PolicyOffer?
   ncbPercentage      Float?
+  discountPercentage Float?
   policyOrigin       PolicyOrigin        @default(fresh)
   tpStartDate        DateTime?
   tpEndDate          DateTime?

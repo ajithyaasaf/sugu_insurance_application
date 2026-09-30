@@ -98,20 +98,28 @@ const PolicyFormFields: React.FC<PolicyFormFieldsProps> = ({ form, setForm, comp
                 const updated = { ...prev, [field]: value };
                 
                 // --- Smart Auto-Calculation Logic ---
-                if (field === 'od' || field === 'tp' || field === 'tax' || field === 'premiumAmount') {
-                    const od = parseFloat(field === 'od' ? value : prev.od) || 0;
+                if (field === 'od' || field === 'tp' || field === 'tax' || field === 'discountPercentage' || field === 'premiumAmount') {
+                    const rawOd = parseFloat(field === 'od' ? value : prev.od) || 0;
+                    const discountPct = parseFloat(field === 'discountPercentage' ? value : prev.discountPercentage) || 0;
                     const tp = parseFloat(field === 'tp' ? value : prev.tp) || 0;
                     const tax = parseFloat(field === 'tax' ? value : prev.tax) || 0;
                     
-                    // 1. Calculate Net Premium (OD + TP) if either OD or TP was the trigger
-                    if (field === 'od' || field === 'tp') {
-                        updated.premiumAmount = (od + tp).toString();
+                    // Discount applies strictly to OD on Motor policies
+                    const isMotorPolicy = (prev.policyType || form.policyType) === 'motor';
+                    const discountAmt = (isMotorPolicy && discountPct > 0) ? (rawOd * (discountPct / 100)) : 0;
+                    const netOd = Math.max(0, rawOd - discountAmt);
+
+                    // 1. Calculate Net Premium (Discounted OD + TP) if OD, TP, or discount was the trigger
+                    if (field === 'od' || field === 'tp' || field === 'discountPercentage') {
+                        const calculatedNet = isMotorPolicy ? (netOd + tp) : (rawOd + tp);
+                        updated.premiumAmount = calculatedNet > 0 ? (Math.round(calculatedNet * 100) / 100).toString() : '';
                     }
                     
                     // 2. Calculate Total Premium (Net + Tax) if any part changed
                     const net = parseFloat(updated.premiumAmount || prev.premiumAmount) || 0;
-                    if (field === 'od' || field === 'tp' || field === 'tax' || field === 'premiumAmount') {
-                        updated.totalPremium = (net + tax).toString();
+                    if (field === 'od' || field === 'tp' || field === 'tax' || field === 'discountPercentage' || field === 'premiumAmount') {
+                        const total = net + tax;
+                        updated.totalPremium = total > 0 ? (Math.round(total * 100) / 100).toString() : '';
                     }
                 }
                 
@@ -129,12 +137,14 @@ const PolicyFormFields: React.FC<PolicyFormFieldsProps> = ({ form, setForm, comp
             policyType: val,
             ...(val === 'health' || val === 'life' || val === 'non_motor' ? {
                 vehicleNumber: '', make: '', model: '', registrationDate: '',
-                idv: '', od: '', tp: '', tax: '', totalPremium: '', premiumAmount: ''
+                idv: '', od: '', tp: '', tax: '', totalPremium: '', premiumAmount: '',
+                discountPercentage: ''
             } : val === 'other' ? {
                 vehicleNumber: '', make: '', model: '', vehicleClass: '',
                 idv: '', registrationDate: '',
                 productName: '',
-                sumInsured: ''
+                sumInsured: '',
+                discountPercentage: ''
             } : {
                 productName: '',
                 sumInsured: ''
@@ -491,7 +501,34 @@ const PolicyFormFields: React.FC<PolicyFormFieldsProps> = ({ form, setForm, comp
                     <div><label className="label">OD Premium</label>
                         <input type="number" min="0" step="0.01" className="input" value={form.od || ''} onChange={(e) => handleChange('od', e.target.value)} />
                     </div>
-                    <div><label className="label">TP Premium</label>
+                    {isMotor && (
+                        <div>
+                            <div className="flex items-center justify-between mb-1">
+                                <label className="label mb-0">Discount (%) on OD</label>
+                                {parseFloat(form.discountPercentage) > 0 && parseFloat(form.od) > 0 && (
+                                    <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                        -Ôé╣{((parseFloat(form.od) * parseFloat(form.discountPercentage)) / 100).toFixed(2)} off OD
+                                    </span>
+                                )}
+                            </div>
+                            <input
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="0.01"
+                                className={`input ${errors?.discountPercentage ? 'border-red-500 focus:ring-red-400' : ''}`}
+                                placeholder="e.g. 20"
+                                value={form.discountPercentage !== null && form.discountPercentage !== undefined ? form.discountPercentage.toString() : ''}
+                                onChange={(e) => handleChange('discountPercentage', e.target.value)}
+                            />
+                            {errors?.discountPercentage && <p className="text-xs text-red-500 mt-1">{errors.discountPercentage}</p>}
+                        </div>
+                    )}
+                    <div>
+                        <div className="flex items-center justify-between mb-1">
+                            <label className="label mb-0">TP Premium</label>
+                            <span className="text-[10px] text-surface-400 font-medium">(Fixed / No Discount)</span>
+                        </div>
                         <input type="number" min="0" step="0.01" className="input" value={form.tp || ''} onChange={(e) => handleChange('tp', e.target.value)} />
                     </div>
                 </>
@@ -517,7 +554,7 @@ const PolicyFormFields: React.FC<PolicyFormFieldsProps> = ({ form, setForm, comp
                 </div>
             )}
 
-            <div><label className="label">{isMotor || form.policyType === 'other' ? 'Net Premium (OD + TP)' : 'Net Premium'} {isRequired ? '*' : ''}</label>
+            <div><label className="label">{isMotor ? (parseFloat(form.discountPercentage) > 0 ? 'Net Premium (Discounted OD + TP)' : 'Net Premium (OD + TP)') : form.policyType === 'other' ? 'Net Premium (OD + TP)' : 'Net Premium'} {isRequired ? '*' : ''}</label>
                 <input type="number" min="0" step="0.01" className={`input ${errors.premiumAmount ? 'border-red-500 focus:ring-red-400' : ''}`} data-error-field={errors.premiumAmount ? 'true' : undefined} value={form.premiumAmount || ''} onChange={(e) => handleChange('premiumAmount', e.target.value)} />
                 {errors.premiumAmount && <p className="text-xs text-red-500 mt-1">{errors.premiumAmount}</p>}
             </div>

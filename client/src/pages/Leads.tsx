@@ -41,7 +41,7 @@ const Leads: React.FC = () => {
         name: '', phone: '', interestedProduct: '', status: 'new', nextFollowUpDate: '', notes: '',
         policyType: '', companyId: '', vehicleNumber: '', make: '', model: '', vehicleClass: '',
         idv: '', od: '', tp: '', tax: '', totalPremium: '', premiumAmount: '', startDate: '', expiryDate: '',
-        dealerId: '', registrationDate: '', policyOrigin: 'fresh', ncbPercentage: '',
+        dealerId: '', registrationDate: '', policyOrigin: 'fresh', ncbPercentage: '', discountPercentage: '',
         productName: '', sumInsured: '',
         tpStartDate: '', tpEndDate: '',
         referenceName: '', referenceLocation: ''
@@ -55,6 +55,7 @@ const Leads: React.FC = () => {
         productName: '',
         sumInsured: '',
         ncbPercentage: '',
+        discountPercentage: '',
         policyNumber: '',
         policyType: '',
         companyId: '',
@@ -138,6 +139,12 @@ const Leads: React.FC = () => {
         if (!form.phone) errs.phone = 'Phone number is required';
         else if (!/^[0-9]{10}$/.test(form.phone)) errs.phone = 'Enter a valid 10-digit phone number';
         if (!form.status) errs.status = 'Please select a status';
+        if ((form as any).discountPercentage) {
+            const disc = parseFloat((form as any).discountPercentage);
+            if (isNaN(disc) || disc < 0 || disc > 100) {
+                errs.discountPercentage = 'Discount must be between 0% and 100%';
+            }
+        }
         return errs;
     };
 
@@ -181,6 +188,7 @@ const Leads: React.FC = () => {
             registrationDate: safeDateInput(lead.registrationDate),
             policyOrigin: lead.policyOrigin || 'fresh',
             ncbPercentage: lead.ncbPercentage !== null && lead.ncbPercentage !== undefined ? lead.ncbPercentage.toString() : '',
+            discountPercentage: lead.discountPercentage !== null && lead.discountPercentage !== undefined ? lead.discountPercentage.toString() : '',
             tpStartDate: safeDateInput(lead.tpStartDate),
             tpEndDate: safeDateInput(lead.tpEndDate)
         });
@@ -226,6 +234,7 @@ const Leads: React.FC = () => {
                 registrationDate: form.policyType === 'motor' && form.registrationDate ? form.registrationDate : undefined,
                 policyOrigin: form.policyOrigin,
                 ncbPercentage: form.policyType === 'motor' && form.ncbPercentage ? parseFloat(form.ncbPercentage as string) : undefined,
+                discountPercentage: form.policyType === 'motor' && (form as any).discountPercentage ? parseFloat((form as any).discountPercentage as string) : undefined,
             };
 
             if (editing) {
@@ -270,6 +279,7 @@ const Leads: React.FC = () => {
             productName: lead.productName || lead.interestedProduct || '',
             sumInsured: lead.sumInsured !== null && lead.sumInsured !== undefined ? lead.sumInsured.toString() : '',
             ncbPercentage: lead.ncbPercentage !== null && lead.ncbPercentage !== undefined ? lead.ncbPercentage.toString() : '',
+            discountPercentage: lead.discountPercentage !== null && lead.discountPercentage !== undefined ? lead.discountPercentage.toString() : '',
             policyNumber: lead.policyNumber || '',
             policyType: lead.policyType || '',
             companyId: lead.companyId || '',
@@ -347,6 +357,7 @@ const Leads: React.FC = () => {
                 productName: policyType === 'motor' ? undefined : (productName || undefined),
                 sumInsured: policyType === 'motor' ? undefined : (sumInsured !== undefined ? sumInsured : undefined),
                 ncbPercentage: policyType === 'motor' && convertForm.ncbPercentage ? parseFloat(convertForm.ncbPercentage) : undefined,
+                discountPercentage: policyType === 'motor' && (convertForm as any).discountPercentage ? parseFloat((convertForm as any).discountPercentage) : (convertingLead?.discountPercentage ?? undefined),
                 tpStartDate: isDualDate ? (convertingLead?.tpStartDate || convertForm.tpStartDate || null) : null,
                 tpEndDate: isDualDate ? (convertingLead?.tpEndDate || convertForm.tpEndDate || null) : null,
                 dealerId: convertForm.dealerId || convertingLead?.dealerId || undefined,

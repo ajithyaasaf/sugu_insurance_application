@@ -31,6 +31,7 @@ interface CreateLeadInput {
     productName?: string | null;
     sumInsured?: number | null;
     ncbPercentage?: number | null;
+    discountPercentage?: number | null;
     tpStartDate?: string | null;
     tpEndDate?: string | null;
     referenceName?: string | null;
@@ -65,6 +66,7 @@ interface UpdateLeadInput {
     productName?: string | null;
     sumInsured?: number | null;
     ncbPercentage?: number | null;
+    discountPercentage?: number | null;
     tpStartDate?: string | null;
     tpEndDate?: string | null;
     referenceName?: string | null;
@@ -73,6 +75,20 @@ interface UpdateLeadInput {
 
 export class LeadService {
     async create(userId: string, role: string, data: CreateLeadInput) {
+        // Smart Premium Pre-calculation for Lead
+        let calculatedNet = data.premiumAmount;
+        let calculatedTotal = data.totalPremium;
+        if (!calculatedNet && (data.od || data.tp)) {
+            const rawOd = data.od || 0;
+            const discountPct = (data.policyType === 'motor' && data.discountPercentage) ? data.discountPercentage : 0;
+            const discountAmt = discountPct > 0 ? (rawOd * (discountPct / 100)) : 0;
+            const netOd = Math.max(0, rawOd - discountAmt);
+            calculatedNet = Math.round((netOd + (data.tp || 0)) * 100) / 100;
+        }
+        if (!calculatedTotal && (calculatedNet || data.tax)) {
+            calculatedTotal = Math.round(((calculatedNet || 0) + (data.tax || 0)) * 100) / 100;
+        }
+
         const lead = await prisma.lead.create({
             data: {
                 userId,
@@ -97,8 +113,8 @@ export class LeadService {
                 od: data.od,
                 tp: data.tp,
                 tax: data.tax,
-                totalPremium: data.totalPremium,
-                premiumAmount: data.premiumAmount,
+                totalPremium: calculatedTotal,
+                premiumAmount: calculatedNet,
                 startDate: data.startDate ? new Date(data.startDate) : null,
                 expiryDate: data.expiryDate ? new Date(data.expiryDate) : null,
                 tpStartDate: data.tpStartDate ? new Date(data.tpStartDate) : null,
@@ -108,6 +124,7 @@ export class LeadService {
                 productName: data.policyType === 'motor' ? null : (data.productName || data.interestedProduct || null),
                 sumInsured: data.policyType === 'motor' ? null : (data.sumInsured ?? null),
                 ncbPercentage: data.ncbPercentage ?? null,
+                discountPercentage: data.policyType === 'motor' ? (data.discountPercentage ?? null) : null,
                 referenceName: data.referenceName || null,
                 referenceLocation: data.referenceLocation || null,
 
@@ -228,6 +245,9 @@ export class LeadService {
                 dealerId: data.dealerId || undefined,
                 productName: data.productName !== undefined ? (data.policyType === 'motor' ? null : (data.productName || data.interestedProduct || null)) : undefined,
                 sumInsured: data.sumInsured !== undefined ? (data.policyType === 'motor' ? null : (data.sumInsured ?? null)) : undefined,
+                discountPercentage: data.policyType !== undefined
+                    ? (data.policyType === 'motor' ? (data.discountPercentage ?? null) : null)
+                    : data.discountPercentage,
                 referenceName: data.referenceName !== undefined ? (data.referenceName || null) : undefined,
                 referenceLocation: data.referenceLocation !== undefined ? (data.referenceLocation || null) : undefined,
 
@@ -282,6 +302,7 @@ export class LeadService {
             productName?: string | null;
             sumInsured?: number | null;
             ncbPercentage?: number | null;
+            discountPercentage?: number | null;
             policyNumber?: string;
             policyType?: PolicyType;
             companyId?: string;
@@ -379,14 +400,18 @@ export class LeadService {
                 const tp = lead.tp !== null ? Number(lead.tp) : (extra.tp !== undefined && extra.tp !== null ? Number(extra.tp) : 0);
                 const tax = lead.tax !== null ? Number(lead.tax) : (extra.tax !== undefined && extra.tax !== null ? Number(extra.tax) : 0);
                 
+                const discountPercentage = policyType === 'motor' ? (extra.discountPercentage !== undefined && extra.discountPercentage !== null ? Number(extra.discountPercentage) : (lead.discountPercentage !== null ? Number(lead.discountPercentage) : null)) : null;
+                
                 let finalNet = premiumAmount;
                 let finalTotal = lead.totalPremium !== null ? lead.totalPremium : (extra.totalPremium !== undefined && extra.totalPremium !== null ? extra.totalPremium : 0);
 
                 if (!finalNet && (od || tp)) {
-                    finalNet = od + tp;
+                    const discountAmt = (discountPercentage && discountPercentage > 0) ? (od * (discountPercentage / 100)) : 0;
+                    const netOd = Math.max(0, od - discountAmt);
+                    finalNet = Math.round((netOd + tp) * 100) / 100;
                 }
                 if (!finalTotal && (finalNet || tax)) {
-                    finalTotal = finalNet + tax;
+                    finalTotal = Math.round((finalNet + tax) * 100) / 100;
                 }
 
                 const startDate = new Date(rawStartDate);
@@ -424,6 +449,7 @@ export class LeadService {
                         referenceLocation: extra.referenceLocation || lead.referenceLocation || null,
                         policyOrigin: (extra.policyOrigin || lead.policyOrigin || 'fresh') as any,
                         ncbPercentage: policyType === 'motor' ? (extra.ncbPercentage ?? lead.ncbPercentage ?? null) : null,
+                        discountPercentage: policyType === 'motor' ? (extra.discountPercentage ?? lead.discountPercentage ?? null) : null,
                         tpStartDate: policyType === 'motor' ? (lead.tpStartDate || (extra.tpStartDate ? new Date(extra.tpStartDate) : null)) : null,
                         tpEndDate: policyType === 'motor' ? (lead.tpEndDate || (extra.tpEndDate ? new Date(extra.tpEndDate) : null)) : null,
 

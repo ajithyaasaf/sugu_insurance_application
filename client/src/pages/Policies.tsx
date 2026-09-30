@@ -91,14 +91,14 @@ const Policies: React.FC = () => {
         customerId: '', companyId: '', policyNumber: '', policyType: 'motor', vehicleNumber: '', startDate: '', expiryDate: '',
         sumInsured: '', premiumAmount: '', premiumMode: 'yearly', productName: '',
         make: '', model: '', vehicleClass: '', idv: '', od: '', tp: '', tax: '', totalPremium: '', paymentMethod: '', paidAmount: '', dealerId: '',
-        registrationDate: '', policyOrigin: 'fresh', ncbPercentage: '', tpStartDate: '', tpEndDate: '',
+        registrationDate: '', policyOrigin: 'fresh', ncbPercentage: '', discountPercentage: '', tpStartDate: '', tpEndDate: '',
         referenceName: '', referenceLocation: ''
     });
     const [editStatus, setEditStatus] = useState<'active' | 'cancelled'>('active');
     const [renewForm, setRenewForm] = useState({
         companyId: '', startDate: '', expiryDate: '', premiumAmount: '', totalPremium: '', policyNumber: '', paidAmount: '',
         paymentMethod: 'Online',
-        od: '', tp: '', tax: '', policyOrigin: 'in_system_renewal', ncbPercentage: '', idv: '', tpStartDate: '', tpEndDate: ''
+        od: '', tp: '', tax: '', policyOrigin: 'in_system_renewal', ncbPercentage: '', discountPercentage: '', idv: '', tpStartDate: '', tpEndDate: ''
     });
     type PaymentMode = 'pending' | 'partial' | 'paid';
     const [renewPaymentMode, setRenewPaymentMode] = useState<PaymentMode>('pending');
@@ -159,7 +159,7 @@ const Policies: React.FC = () => {
 
     const openCreate = () => {
         setEditing(null);
-        setForm({ customerId: '', companyId: '', policyNumber: '', policyType: 'motor', vehicleNumber: '', startDate: '', expiryDate: '', sumInsured: '', premiumAmount: '', premiumMode: 'yearly', productName: '', make: '', model: '', vehicleClass: '', idv: '', od: '', tp: '', tax: '', totalPremium: '', paymentMethod: '', paidAmount: '', dealerId: '', registrationDate: '', policyOrigin: 'fresh', ncbPercentage: '', tpStartDate: '', tpEndDate: '', referenceName: '', referenceLocation: '' });
+        setForm({ customerId: '', companyId: '', policyNumber: '', policyType: 'motor', vehicleNumber: '', startDate: '', expiryDate: '', sumInsured: '', premiumAmount: '', premiumMode: 'yearly', productName: '', make: '', model: '', vehicleClass: '', idv: '', od: '', tp: '', tax: '', totalPremium: '', paymentMethod: '', paidAmount: '', dealerId: '', registrationDate: '', policyOrigin: 'fresh', ncbPercentage: '', discountPercentage: '', tpStartDate: '', tpEndDate: '', referenceName: '', referenceLocation: '' });
         setEditStatus('active');
         setErrors({});
         setModalOpen(true);
@@ -178,6 +178,7 @@ const Policies: React.FC = () => {
             registrationDate: p.registrationDate || '',
             policyOrigin: p.policyOrigin || 'fresh',
             ncbPercentage: p.ncbPercentage !== null && p.ncbPercentage !== undefined ? p.ncbPercentage.toString() : '',
+            discountPercentage: p.discountPercentage !== null && p.discountPercentage !== undefined ? p.discountPercentage.toString() : '',
             tpStartDate: p.tpStartDate ? p.tpStartDate.split('T')[0] : '',
             tpEndDate: p.tpEndDate ? p.tpEndDate.split('T')[0] : '',
             referenceName: p.referenceName || '',
@@ -203,6 +204,12 @@ const Policies: React.FC = () => {
             if (form.vehicleClass !== 'CPA') {
                 if (!form.make) errs.make = 'Make is required';
                 if (!form.model) errs.model = 'Model is required';
+            }
+        }
+        if (form.discountPercentage) {
+            const disc = parseFloat(form.discountPercentage);
+            if (isNaN(disc) || disc < 0 || disc > 100) {
+                errs.discountPercentage = 'Discount must be between 0% and 100%';
             }
         }
         return errs;
@@ -240,6 +247,7 @@ const Policies: React.FC = () => {
                 referenceLocation: form.referenceLocation || undefined,
                 policyOrigin: form.policyOrigin,
                 ncbPercentage: form.ncbPercentage ? parseFloat(form.ncbPercentage as string) : undefined,
+                discountPercentage: form.discountPercentage ? parseFloat(form.discountPercentage as string) : undefined,
                 tpStartDate: DUAL_DATE_VEHICLE_CLASSES.includes(form.vehicleClass) && form.tpStartDate ? form.tpStartDate : null,
                 tpEndDate: DUAL_DATE_VEHICLE_CLASSES.includes(form.vehicleClass) && form.tpEndDate ? form.tpEndDate : null,
                 ...(editing ? { status: editStatus } : {}),
@@ -277,15 +285,23 @@ const Policies: React.FC = () => {
     const handleRenewChange = (field: string, value: string) => {
         setRenewForm(prev => {
             const updated = { ...prev, [field]: value };
-            if (field === 'od' || field === 'tp' || field === 'tax' || field === 'premiumAmount') {
+            if (field === 'od' || field === 'tp' || field === 'tax' || field === 'discountPercentage' || field === 'premiumAmount') {
                 const od = parseFloat(field === 'od' ? value : prev.od) || 0;
+                const discountPct = parseFloat(field === 'discountPercentage' ? value : (prev as any).discountPercentage) || 0;
                 const tp = parseFloat(field === 'tp' ? value : prev.tp) || 0;
                 const tax = parseFloat(field === 'tax' ? value : prev.tax) || 0;
-                if (field === 'od' || field === 'tp') {
-                    updated.premiumAmount = (od + tp).toString();
+
+                const isMotor = renewingPolicy?.policyType === 'motor';
+                const discountAmt = (isMotor && discountPct > 0) ? (od * (discountPct / 100)) : 0;
+                const netOd = Math.max(0, od - discountAmt);
+
+                if (field === 'od' || field === 'tp' || field === 'discountPercentage') {
+                    const net = isMotor ? (netOd + tp) : (od + tp);
+                    updated.premiumAmount = net > 0 ? (Math.round(net * 100) / 100).toString() : '';
                 }
                 const net = parseFloat(updated.premiumAmount || prev.premiumAmount) || 0;
-                updated.totalPremium = (net + tax).toString();
+                const total = net + tax;
+                updated.totalPremium = total > 0 ? (Math.round(total * 100) / 100).toString() : '';
                 if (renewPaymentMode === 'paid') {
                     updated.paidAmount = updated.totalPremium;
                 }
@@ -331,6 +347,7 @@ const Policies: React.FC = () => {
             tax: p.tax?.toString() || '',
             policyOrigin: 'in_system_renewal',
             ncbPercentage: '',
+            discountPercentage: p.discountPercentage !== null && p.discountPercentage !== undefined ? p.discountPercentage.toString() : '',
             idv: p.idv?.toString() || '',
             tpStartDate: p.tpStartDate ? start.toISOString().split('T')[0] : '',
             tpEndDate: p.tpEndDate ? newExpiry.toISOString().split('T')[0] : '',
@@ -355,6 +372,12 @@ const Policies: React.FC = () => {
                 errs.paidAmount = 'Enter amount collected so far';
             } else if (paid >= total && total > 0) {
                 errs.paidAmount = 'Partial amount must be less than total premium (or choose Fully Paid)';
+            }
+        }
+        if ((renewForm as any).discountPercentage) {
+            const disc = parseFloat((renewForm as any).discountPercentage);
+            if (isNaN(disc) || disc < 0 || disc > 100) {
+                errs.discountPercentage = 'Discount must be between 0% and 100%';
             }
         }
         return errs;
@@ -383,6 +406,7 @@ const Policies: React.FC = () => {
                 paidAmount: renewForm.paidAmount ? parseFloat(renewForm.paidAmount) : undefined,
                 paymentMethod: renewForm.paymentMethod || undefined,
                 ncbPercentage: renewForm.ncbPercentage ? parseFloat(renewForm.ncbPercentage.toString()) : undefined,
+                discountPercentage: (renewForm as any).discountPercentage ? parseFloat((renewForm as any).discountPercentage.toString()) : undefined,
                 idv: (renewForm.idv !== '' && renewForm.idv !== undefined) ? parseFloat(renewForm.idv) : undefined,
                 tpStartDate: isDualDate && renewForm.tpStartDate ? renewForm.tpStartDate : null,
                 tpEndDate: isDualDate && renewForm.tpEndDate ? renewForm.tpEndDate : null,
@@ -794,7 +818,31 @@ const Policies: React.FC = () => {
                                     <input type="number" min="0" step="0.01" className="input" value={renewForm.od} onChange={(e) => handleRenewChange('od', e.target.value)} />
                                 </div>
                                 <div>
-                                    <label className="label">TP Premium</label>
+                                    <div className="flex items-center justify-between mb-1">
+                                        <label className="label mb-0">Discount (%) on OD</label>
+                                        {parseFloat((renewForm as any).discountPercentage) > 0 && parseFloat(renewForm.od) > 0 && (
+                                            <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                                -Ôé╣{((parseFloat(renewForm.od) * parseFloat((renewForm as any).discountPercentage)) / 100).toFixed(2)} off OD
+                                            </span>
+                                        )}
+                                    </div>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        step="0.01"
+                                        className={`input ${renewErrors.discountPercentage ? 'border-red-500 focus:ring-red-400' : ''}`}
+                                        placeholder="e.g. 20"
+                                        value={(renewForm as any).discountPercentage !== null && (renewForm as any).discountPercentage !== undefined ? (renewForm as any).discountPercentage.toString() : ''}
+                                        onChange={(e) => handleRenewChange('discountPercentage', e.target.value)}
+                                    />
+                                    {renewErrors.discountPercentage && <p className="text-xs text-red-500 mt-1">{renewErrors.discountPercentage}</p>}
+                                </div>
+                                <div>
+                                    <div className="flex items-center justify-between mb-1">
+                                        <label className="label mb-0">TP Premium</label>
+                                        <span className="text-[10px] text-surface-400 font-medium">(Fixed / No Discount)</span>
+                                    </div>
                                     <input type="number" min="0" step="0.01" className="input" value={renewForm.tp} onChange={(e) => handleRenewChange('tp', e.target.value)} />
                                 </div>
                                 <div>
@@ -811,7 +859,7 @@ const Policies: React.FC = () => {
                         )}
 
                         <div>
-                            <label className="label">Net Premium (OD + TP) *</label>
+                            <label className="label">{parseFloat((renewForm as any).discountPercentage) > 0 ? 'Net Premium (Discounted OD + TP) *' : 'Net Premium (OD + TP) *'}</label>
                             <input type="number" min="0" step="0.01" className={`input ${renewErrors.premiumAmount ? 'border-red-500 focus:ring-red-400' : ''}`} value={renewForm.premiumAmount} onChange={(e) => handleRenewChange('premiumAmount', e.target.value)} />
                             {renewErrors.premiumAmount && <p className="text-xs text-red-500 mt-1">{renewErrors.premiumAmount}</p>}
                         </div>
