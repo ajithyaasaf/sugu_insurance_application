@@ -539,6 +539,11 @@ export class PolicyService {
     async renew(userId: string, role: string, id: string, data: Partial<CreatePolicyInput>) {
         const originalPolicy = await this.findById(userId, role, id);
 
+        // Guard: Prevent duplicate renewal if this policy has already been renewed
+        if (originalPolicy.renewals && originalPolicy.renewals.length > 0) {
+            throw Object.assign(new Error('This policy has already been renewed'), { statusCode: 400 });
+        }
+
         // --- Smart Premium Pre-calculation for Renewal ---
         const od = data.od !== undefined ? data.od : originalPolicy.od;
         const tp = data.tp !== undefined ? data.tp : originalPolicy.tp;
