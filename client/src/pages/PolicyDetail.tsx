@@ -230,7 +230,7 @@ const PolicyDetail: React.FC = () => {
                         {/* Premium Breakdown Section */}
                         <div className="pt-4 border-t border-surface-100">
                             <h3 className="text-[10px] font-bold text-surface-400 uppercase tracking-widest mb-3">Premium Breakdown</h3>
-                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+                            <div className="grid grid-cols-2 sm:grid-cols-6 gap-4">
                                 {policy.sumInsured > 0 && <div>
                                     <p className="text-xs text-surface-500 mb-1">Sum Insured</p>
                                     <p className="text-sm font-medium text-surface-900">{formatCurrency(policy.sumInsured)}</p>
@@ -243,7 +243,13 @@ const PolicyDetail: React.FC = () => {
                                     <p className="text-xs text-surface-500 mb-1">OD Premium</p>
                                     <p className="text-sm font-medium text-surface-900">{formatCurrency(policy.od)}</p>
                                 </div>}
-                                {policy.discountPercentage > 0 && <div>
+                                {policy.ncbPercentage !== null && policy.ncbPercentage !== undefined && Number(policy.ncbPercentage) > 0 && <div>
+                                    <p className="text-xs text-surface-500 mb-1">NCB Applied</p>
+                                    <p className="text-sm font-medium text-emerald-600">
+                                        {policy.ncbPercentage}%
+                                    </p>
+                                </div>}
+                                {policy.discountPercentage !== null && policy.discountPercentage !== undefined && Number(policy.discountPercentage) > 0 && <div>
                                     <p className="text-xs text-surface-500 mb-1">OD Discount</p>
                                     <p className="text-sm font-medium text-emerald-600">
                                         {policy.discountPercentage}%
