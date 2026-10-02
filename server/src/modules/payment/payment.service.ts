@@ -608,7 +608,7 @@ export class PaymentService {
             }),
         };
 
-        const [data, total] = await Promise.all([
+        const [data, total, stats] = await Promise.all([
             prisma.paymentBatch.findMany({
                 where,
                 skip: (page - 1) * limit,
@@ -616,11 +616,20 @@ export class PaymentService {
                 orderBy: { paymentDate: 'desc' },
                 include: {
                     payments: {
-                        include: { customer: true, policy: true },
+                        include: {
+                            customer: true,
+                            policy: {
+                                include: { company: true }
+                            },
+                        },
                     },
                 },
             }),
             prisma.paymentBatch.count({ where }),
+            prisma.paymentBatch.aggregate({
+                where,
+                _sum: { totalAmount: true },
+            }),
         ]);
 
         return {
@@ -630,6 +639,7 @@ export class PaymentService {
                 limit,
                 total,
                 totalPages: Math.ceil(total / limit),
+                totalCollected: stats._sum.totalAmount || 0,
             },
         };
     }
@@ -639,7 +649,12 @@ export class PaymentService {
             where: { id, ...ownerFilter(userId, role) },
             include: {
                 payments: {
-                    include: { customer: true, policy: true },
+                    include: {
+                        customer: true,
+                        policy: {
+                            include: { company: true }
+                        },
+                    },
                 },
             },
         });

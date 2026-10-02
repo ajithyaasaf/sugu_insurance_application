@@ -14,13 +14,13 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useAuth } from '../context/AuthContext';
 import BatchCollectionModal from '../components/payments/BatchCollectionModal';
-
-
-
+import BatchHistoryTab from '../components/payments/BatchHistoryTab';
 
 const Payments: React.FC = () => {
     const { user } = useAuth();
     const isStaff = user?.role === 'staff';
+    const [activeTab, setActiveTab] = useState<'individual' | 'batches'>('individual');
+    const [batchRefreshTrigger, setBatchRefreshTrigger] = useState(0);
     const [payments, setPayments] = useState<any[]>([]);
     const [customers, setCustomers] = useState<any[]>([]);
     const [policies, setPolicies] = useState<any[]>([]);
@@ -277,7 +277,6 @@ const Payments: React.FC = () => {
                             <HiOutlineDocumentDownload className="w-4 h-4" /> Export PDF
                         </Button>
                     )}
-                    
                     <Button
                         onClick={() => setBatchModalOpen(true)}
                         className="btn-secondary flex items-center gap-1.5 text-primary-700 bg-primary-50 border-primary-200 hover:bg-primary-100"
@@ -289,7 +288,49 @@ const Payments: React.FC = () => {
                 </div>
             </div>
 
-            {/* Overall Outstanding KPI Summary Card */}
+            {/* Tab Navigation */}
+            <div className="flex border-b border-surface-200 gap-6">
+                <button
+                    type="button"
+                    onClick={() => setActiveTab('individual')}
+                    className={`pb-3 text-sm font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+                        activeTab === 'individual'
+                            ? 'border-primary-600 text-primary-600'
+                            : 'border-transparent text-surface-500 hover:text-surface-800'
+                    }`}
+                >
+                    <HiOutlineCreditCard className="w-4 h-4" />
+                    <span>Payment Records</span>
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-surface-100 text-surface-600">
+                        {meta.total}
+                    </span>
+                </button>
+
+                <button
+                    type="button"
+                    onClick={() => setActiveTab('batches')}
+                    className={`pb-3 text-sm font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+                        activeTab === 'batches'
+                            ? 'border-primary-600 text-primary-600'
+                            : 'border-transparent text-surface-500 hover:text-surface-800'
+                    }`}
+                >
+                    <HiOutlineCollection className="w-4 h-4" />
+                    <span>Batch Payment History</span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 uppercase tracking-wide">
+                        Receipts
+                    </span>
+                </button>
+            </div>
+
+            {activeTab === 'batches' ? (
+                <BatchHistoryTab
+                    onOpenNewBatch={() => setBatchModalOpen(true)}
+                    refreshTrigger={batchRefreshTrigger}
+                />
+            ) : (
+                <>
+                    {/* Overall Outstanding KPI Summary Card */}
             <div className="bg-white rounded-2xl p-4 sm:p-5 border border-surface-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-3.5">
                     <div className="w-11 h-11 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shrink-0 border border-red-100">
@@ -326,7 +367,7 @@ const Payments: React.FC = () => {
                 <SearchableSelect
                     className="w-full sm:w-48"
                     options={[
-                        { value: 'direct', label: '⭐ Direct' },
+                        ...(isStaff ? [] : [{ value: 'direct', label: '⭐ Direct' }]),
                         ...dealers.map(d => ({ value: d.id, label: d.name }))
                     ]}
                     value={dealerFilter}
@@ -392,7 +433,7 @@ const Payments: React.FC = () => {
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="font-semibold text-surface-900 text-xs">{formatCurrency(grossPremium)}</td>
+                                            <td className="font-semibold text-surface-900 text-xs">{formatCurrency(isStaff ? p.amount : grossPremium)}</td>
                                             <td className="text-xs">{formatDate(p.dueDate)}</td>
                                             <td className="text-xs">{p.paidAmount ? formatCurrency(p.paidAmount) : '—'}</td>
                                             <td className="text-xs">
@@ -400,7 +441,7 @@ const Payments: React.FC = () => {
                                                     <span className={`font-bold ${outstanding > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
                                                         {formatCurrency(outstanding)}
                                                     </span>
-                                                    {offer && (
+                                                    {!isStaff && offer && (
                                                         <div className="flex items-center gap-1 text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60 mt-0.5 w-max">
                                                             <HiOutlineTag className="w-3 h-3 text-emerald-600 shrink-0" />
                                                             <span>-{formatCurrency(offer.offerAmount)} Offer</span>
@@ -417,11 +458,9 @@ const Payments: React.FC = () => {
                                                 </div>
                                             </td>
                                             <td>
-                                                {!isStaff && (
-                                                    <button onClick={() => openEdit(p)} className="btn-ghost btn-sm" title="Edit Payment">
-                                                        <HiOutlinePencil className="w-3.5 h-3.5" />
-                                                    </button>
-                                                )}
+                                                <button onClick={() => openEdit(p)} className="btn-ghost btn-sm" title="Edit Payment">
+                                                    <HiOutlinePencil className="w-3.5 h-3.5" />
+                                                </button>
                                             </td>
                                         </tr>
                                     );
@@ -446,7 +485,7 @@ const Payments: React.FC = () => {
                             const grossPremium = offer?.grossPremium || p.policy?.totalPremium || p.policy?.premiumAmount || p.amount;
 
                             return (
-                                <div key={p.id} className="card card-body" onClick={!isStaff ? () => openEdit(p) : undefined}>
+                                <div key={p.id} className="card card-body hover:border-surface-300 transition-colors cursor-pointer" onClick={() => openEdit(p)}>
                                     <div className="flex justify-between items-start mb-1">
                                         <p className="font-semibold text-surface-900">{p.customer?.name}</p>
                                         <div className="flex items-center gap-2">
@@ -458,14 +497,14 @@ const Payments: React.FC = () => {
                                     </div>
                                     <p className="text-xs text-surface-500 mb-2">Due: {formatDate(p.dueDate)}</p>
                                     <div className="flex justify-between items-center text-sm">
-                                        <span>Amount: <strong>{formatCurrency(grossPremium)}</strong></span>
+                                        <span>Amount: <strong>{formatCurrency(isStaff ? p.amount : grossPremium)}</strong></span>
                                         {p.paidAmount ? <span className="text-emerald-600 font-medium">Paid: {formatCurrency(p.paidAmount)}</span> : null}
                                     </div>
                                     {outstanding > 0 && (
                                         <div className="mt-2 pt-2 border-t border-dashed border-surface-200 flex justify-between items-center text-sm">
                                             <div className="flex flex-col">
                                                 <span className="text-surface-500 font-medium">Outstanding:</span>
-                                                {offer && (
+                                                {!isStaff && offer && (
                                                     <div className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60 inline-flex items-center gap-1 mt-0.5">
                                                         <HiOutlineTag className="w-3 h-3 text-emerald-600 shrink-0" /> -{formatCurrency(offer.offerAmount)} Offer
                                                     </div>
@@ -488,6 +527,8 @@ const Payments: React.FC = () => {
                     </div>
                     <Pagination page={meta.page} totalPages={meta.totalPages} onPageChange={(p) => fetchPayments(p)} />
                 </>
+            )}
+            </>
             )}
 
             <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Update Payment' : 'New Payment'}>
@@ -517,7 +558,7 @@ const Payments: React.FC = () => {
                             <div>
                                 <label className="label">Policy *</label>
                                 <SearchableSelect
-                                    options={policies.filter(p => !form.customerId || p.customerId === form.customerId).map(p => ({
+                                    options={policies.filter(p => (!form.customerId || p.customerId === form.customerId) && (!isStaff || p.dealerId)).map(p => ({
                                         value: p.id,
                                         label: `${p.policyNumber ? p.policyNumber + ' - ' : ''}${p.vehicleNumber ? p.vehicleNumber + ' - ' : ''}${p.customer?.name || ''}${p.customer?.phone ? ` (${p.customer.phone})` : ''} (${p.productName || p.policyType})`
                                     }))}
@@ -594,12 +635,15 @@ const Payments: React.FC = () => {
                 </form>
             </Modal>
 
-            
             <BatchCollectionModal
                 isOpen={batchModalOpen}
                 onClose={() => setBatchModalOpen(false)}
-                onSuccess={() => fetchPayments(meta.page)}
+                onSuccess={() => {
+                    fetchPayments(meta.page);
+                    setBatchRefreshTrigger(prev => prev + 1);
+                }}
             />
+
             <button onClick={openCreate} className="fab lg:hidden"><HiOutlinePlus className="w-6 h-6" /></button>
         </div>
     );
