@@ -53,11 +53,7 @@ export class PolicyService {
 
         // --- Smart Premium Pre-calculation ---
         if (!data.premiumAmount && (data.od || data.tp)) {
-            const rawOd = data.od || 0;
-            const discountPct = (data.policyType === 'motor' && data.discountPercentage) ? data.discountPercentage : 0;
-            const discountAmt = discountPct > 0 ? (rawOd * (discountPct / 100)) : 0;
-            const netOd = Math.max(0, rawOd - discountAmt);
-            data.premiumAmount = Math.round((netOd + (data.tp || 0)) * 100) / 100;
+            data.premiumAmount = Math.round(((data.od || 0) + (data.tp || 0)) * 100) / 100;
         }
         if (!data.totalPremium && (data.premiumAmount || data.tax)) {
             data.totalPremium = Math.round(((data.premiumAmount || 0) + (data.tax || 0)) * 100) / 100;
@@ -353,16 +349,9 @@ export class PolicyService {
         const od = data.od !== undefined ? data.od : policy.od;
         const tp = data.tp !== undefined ? data.tp : policy.tp;
         const tax = data.tax !== undefined ? data.tax : policy.tax;
-        const currentPolicyType = data.policyType || policy.policyType;
-        const discountPct = (currentPolicyType === 'motor')
-            ? (data.discountPercentage !== undefined ? (data.discountPercentage || 0) : (policy.discountPercentage || 0))
-            : 0;
 
-        if (data.premiumAmount === undefined && (data.od !== undefined || data.tp !== undefined || data.discountPercentage !== undefined)) {
-            const rawOd = od || 0;
-            const discountAmt = discountPct > 0 ? (rawOd * (discountPct / 100)) : 0;
-            const netOd = Math.max(0, rawOd - discountAmt);
-            data.premiumAmount = Math.round((netOd + (tp || 0)) * 100) / 100;
+        if (data.premiumAmount === undefined && (data.od !== undefined || data.tp !== undefined)) {
+            data.premiumAmount = Math.round(((od || 0) + (tp || 0)) * 100) / 100;
         }
         if (data.totalPremium === undefined && (data.premiumAmount !== undefined || data.tax !== undefined)) {
             data.totalPremium = Math.round(((data.premiumAmount || policy.premiumAmount || 0) + (tax || 0)) * 100) / 100;
@@ -432,7 +421,7 @@ export class PolicyService {
                     tpEndDate: data.tpEndDate === null ? null : (data.tpEndDate ? new Date(data.tpEndDate) : undefined),
                     noOfYears: Math.max(1, Math.round(Math.abs(newExpiry.getTime() - newStart.getTime()) / (1000 * 60 * 60 * 24 * 365))),
                     policyType: data.policyType as any,
-                    discountPercentage: currentPolicyType === 'motor'
+                    discountPercentage: newPolicyType === 'motor'
                         ? (data.discountPercentage !== undefined ? data.discountPercentage : policy.discountPercentage)
                         : null,
                     premiumMode: data.premiumMode as any,

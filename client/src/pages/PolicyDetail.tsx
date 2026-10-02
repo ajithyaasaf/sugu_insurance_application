@@ -247,11 +247,6 @@ const PolicyDetail: React.FC = () => {
                                     <p className="text-xs text-surface-500 mb-1">OD Discount</p>
                                     <p className="text-sm font-medium text-emerald-600">
                                         {policy.discountPercentage}%
-                                        {policy.od > 0 && (
-                                            <span className="text-xs text-surface-400 font-normal ml-1">
-                                                (-{formatCurrency((policy.od * policy.discountPercentage) / 100)})
-                                            </span>
-                                        )}
                                     </p>
                                 </div>}
                                 {policy.tp > 0 && <div>

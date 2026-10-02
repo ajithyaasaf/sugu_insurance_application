@@ -285,18 +285,13 @@ const Policies: React.FC = () => {
     const handleRenewChange = (field: string, value: string) => {
         setRenewForm(prev => {
             const updated = { ...prev, [field]: value };
-            if (field === 'od' || field === 'tp' || field === 'tax' || field === 'discountPercentage' || field === 'premiumAmount') {
+            if (field === 'od' || field === 'tp' || field === 'tax' || field === 'premiumAmount') {
                 const od = parseFloat(field === 'od' ? value : prev.od) || 0;
-                const discountPct = parseFloat(field === 'discountPercentage' ? value : (prev as any).discountPercentage) || 0;
                 const tp = parseFloat(field === 'tp' ? value : prev.tp) || 0;
                 const tax = parseFloat(field === 'tax' ? value : prev.tax) || 0;
 
-                const isMotor = renewingPolicy?.policyType === 'motor';
-                const discountAmt = (isMotor && discountPct > 0) ? (od * (discountPct / 100)) : 0;
-                const netOd = Math.max(0, od - discountAmt);
-
-                if (field === 'od' || field === 'tp' || field === 'discountPercentage') {
-                    const net = isMotor ? (netOd + tp) : (od + tp);
+                if (field === 'od' || field === 'tp') {
+                    const net = od + tp;
                     updated.premiumAmount = net > 0 ? (Math.round(net * 100) / 100).toString() : '';
                 }
                 const net = parseFloat(updated.premiumAmount || prev.premiumAmount) || 0;
@@ -818,14 +813,7 @@ const Policies: React.FC = () => {
                                     <input type="number" min="0" step="0.01" className="input" value={renewForm.od} onChange={(e) => handleRenewChange('od', e.target.value)} />
                                 </div>
                                 <div>
-                                    <div className="flex items-center justify-between mb-1">
-                                        <label className="label mb-0">Discount (%) on OD</label>
-                                        {parseFloat((renewForm as any).discountPercentage) > 0 && parseFloat(renewForm.od) > 0 && (
-                                            <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                                                -Ôé╣{((parseFloat(renewForm.od) * parseFloat((renewForm as any).discountPercentage)) / 100).toFixed(2)} off OD
-                                            </span>
-                                        )}
-                                    </div>
+                                    <label className="label">Discount (%) on OD</label>
                                     <input
                                         type="number"
                                         min="0"
@@ -839,10 +827,7 @@ const Policies: React.FC = () => {
                                     {renewErrors.discountPercentage && <p className="text-xs text-red-500 mt-1">{renewErrors.discountPercentage}</p>}
                                 </div>
                                 <div>
-                                    <div className="flex items-center justify-between mb-1">
-                                        <label className="label mb-0">TP Premium</label>
-                                        <span className="text-[10px] text-surface-400 font-medium">(Fixed / No Discount)</span>
-                                    </div>
+                                    <label className="label">TP Premium</label>
                                     <input type="number" min="0" step="0.01" className="input" value={renewForm.tp} onChange={(e) => handleRenewChange('tp', e.target.value)} />
                                 </div>
                                 <div>
@@ -859,7 +844,7 @@ const Policies: React.FC = () => {
                         )}
 
                         <div>
-                            <label className="label">{parseFloat((renewForm as any).discountPercentage) > 0 ? 'Net Premium (Discounted OD + TP) *' : 'Net Premium (OD + TP) *'}</label>
+                            <label className="label">Net Premium (OD + TP) *</label>
                             <input type="number" min="0" step="0.01" className={`input ${renewErrors.premiumAmount ? 'border-red-500 focus:ring-red-400' : ''}`} value={renewForm.premiumAmount} onChange={(e) => handleRenewChange('premiumAmount', e.target.value)} />
                             {renewErrors.premiumAmount && <p className="text-xs text-red-500 mt-1">{renewErrors.premiumAmount}</p>}
                         </div>

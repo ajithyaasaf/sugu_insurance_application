@@ -79,11 +79,7 @@ export class LeadService {
         let calculatedNet = data.premiumAmount;
         let calculatedTotal = data.totalPremium;
         if (!calculatedNet && (data.od || data.tp)) {
-            const rawOd = data.od || 0;
-            const discountPct = (data.policyType === 'motor' && data.discountPercentage) ? data.discountPercentage : 0;
-            const discountAmt = discountPct > 0 ? (rawOd * (discountPct / 100)) : 0;
-            const netOd = Math.max(0, rawOd - discountAmt);
-            calculatedNet = Math.round((netOd + (data.tp || 0)) * 100) / 100;
+            calculatedNet = Math.round(((data.od || 0) + (data.tp || 0)) * 100) / 100;
         }
         if (!calculatedTotal && (calculatedNet || data.tax)) {
             calculatedTotal = Math.round(((calculatedNet || 0) + (data.tax || 0)) * 100) / 100;
@@ -406,9 +402,7 @@ export class LeadService {
                 let finalTotal = lead.totalPremium !== null ? lead.totalPremium : (extra.totalPremium !== undefined && extra.totalPremium !== null ? extra.totalPremium : 0);
 
                 if (!finalNet && (od || tp)) {
-                    const discountAmt = (discountPercentage && discountPercentage > 0) ? (od * (discountPercentage / 100)) : 0;
-                    const netOd = Math.max(0, od - discountAmt);
-                    finalNet = Math.round((netOd + tp) * 100) / 100;
+                    finalNet = Math.round((od + tp) * 100) / 100;
                 }
                 if (!finalTotal && (finalNet || tax)) {
                     finalTotal = Math.round((finalNet + tax) * 100) / 100;
