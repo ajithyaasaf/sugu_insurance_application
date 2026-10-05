@@ -83,7 +83,8 @@ export const PaymentHistoryModal: React.FC<PaymentHistoryModalProps> = ({ paymen
             setLoading(true);
             try {
                 const res = await api.get(`/payments/${paymentId}/history`);
-                setData(res.data);
+                const payload = res.data?.data || res.data;
+                setData(payload);
             } catch (err: any) {
                 toast.error(err?.response?.data?.message || 'Failed to load payment history');
             } finally {
@@ -98,7 +99,7 @@ export const PaymentHistoryModal: React.FC<PaymentHistoryModalProps> = ({ paymen
         setFetchingBatch(true);
         try {
             const res = await api.get(`/payments/batches/${batchId}`);
-            setSelectedBatch(res.data);
+            setSelectedBatch(res.data?.data || res.data);
         } catch {
             toast.error('Failed to load batch receipt details');
         } finally {
@@ -108,8 +109,12 @@ export const PaymentHistoryModal: React.FC<PaymentHistoryModalProps> = ({ paymen
 
     if (!isOpen) return null;
 
-    const percentPaid = data && data.summary.amount > 0 
-        ? Math.min(100, Math.round((data.summary.paidAmount / data.summary.amount) * 100))
+    const summary = data?.summary;
+    const payment = data?.payment;
+    const history = data?.history || [];
+
+    const percentPaid = summary && summary.amount > 0 
+        ? Math.min(100, Math.round(((summary.paidAmount || 0) / summary.amount) * 100))
         : 0;
 
     return (
@@ -125,7 +130,7 @@ export const PaymentHistoryModal: React.FC<PaymentHistoryModalProps> = ({ paymen
                         <div className="w-10 h-10 border-3 border-primary-600 border-t-transparent rounded-full animate-spin" />
                         <p className="text-sm font-medium text-surface-500">Loading payment installments...</p>
                     </div>
-                ) : !data ? (
+                ) : !data || !payment || !summary ? (
                     <div className="py-8 text-center text-surface-500">
                         <HiOutlineInformationCircle className="w-10 h-10 mx-auto text-surface-400 mb-2" />
                         <p>No payment history details available.</p>
@@ -138,30 +143,30 @@ export const PaymentHistoryModal: React.FC<PaymentHistoryModalProps> = ({ paymen
                                 <div>
                                     <div className="flex items-center gap-2 mb-1">
                                         <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-white/20 text-white uppercase tracking-wider">
-                                            {data.payment.policy?.productName || data.payment.policy?.policyType || 'Policy'}
+                                            {payment.policy?.productName || payment.policy?.policyType || 'Policy'}
                                         </span>
-                                        {data.payment.policy?.vehicleNumber && (
+                                        {payment.policy?.vehicleNumber && (
                                             <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase tracking-wide">
-                                                🚗 {data.payment.policy.vehicleNumber}
+                                                🚗 {payment.policy.vehicleNumber}
                                             </span>
                                         )}
-                                        <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${getStatusColor(data.payment.status)} uppercase`}>
-                                            {data.payment.status}
+                                        <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${getStatusColor(payment.status)} uppercase`}>
+                                            {payment.status}
                                         </span>
                                     </div>
                                     <h3 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-                                        {data.payment.customer?.name}
-                                        {data.payment.customer?.phone && (
+                                        {payment.customer?.name || 'Customer'}
+                                        {payment.customer?.phone && (
                                             <span className="text-xs font-normal text-surface-300">
-                                                ({data.payment.customer.phone})
+                                                ({payment.customer.phone})
                                             </span>
                                         )}
                                     </h3>
                                     <p className="text-xs text-surface-300 mt-0.5">
-                                        Policy No: <span className="font-mono text-white">{data.payment.policy?.policyNumber || '—'}</span>
-                                        {data.payment.policy?.dealer?.name && (
+                                        Policy No: <span className="font-mono text-white">{payment.policy?.policyNumber || '—'}</span>
+                                        {payment.policy?.dealer?.name && (
                                             <span className="ml-2 pl-2 border-l border-white/20">
-                                                Dealer: <span className="text-amber-300 font-semibold">{data.payment.policy.dealer.name}</span>
+                                                Dealer: <span className="text-amber-300 font-semibold">{payment.policy.dealer.name}</span>
                                             </span>
                                         )}
                                     </p>
@@ -182,19 +187,19 @@ export const PaymentHistoryModal: React.FC<PaymentHistoryModalProps> = ({ paymen
                                 <div className="bg-white/10 p-2.5 rounded-xl backdrop-blur-sm border border-white/5">
                                     <span className="text-[10px] font-semibold uppercase text-surface-300 block">Total Due</span>
                                     <span className="text-base sm:text-lg font-bold text-white">
-                                        {formatCurrency(data.summary.amount)}
+                                        {formatCurrency(summary.amount)}
                                     </span>
                                 </div>
                                 <div className="bg-emerald-500/20 p-2.5 rounded-xl border border-emerald-500/30">
                                     <span className="text-[10px] font-semibold uppercase text-emerald-200 block">Total Collected</span>
                                     <span className="text-base sm:text-lg font-bold text-emerald-300">
-                                        {formatCurrency(data.summary.paidAmount)}
+                                        {formatCurrency(summary.paidAmount)}
                                     </span>
                                 </div>
-                                <div className={`p-2.5 rounded-xl border ${data.summary.balanceDue > 0 ? 'bg-red-500/20 border-red-500/30 text-red-300' : 'bg-white/10 border-white/5 text-surface-300'}`}>
+                                <div className={`p-2.5 rounded-xl border ${summary.balanceDue > 0 ? 'bg-red-500/20 border-red-500/30 text-red-300' : 'bg-white/10 border-white/5 text-surface-300'}`}>
                                     <span className="text-[10px] font-semibold uppercase block">Balance Left</span>
-                                    <span className={`text-base sm:text-lg font-bold ${data.summary.balanceDue > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
-                                        {formatCurrency(data.summary.balanceDue)}
+                                    <span className={`text-base sm:text-lg font-bold ${summary.balanceDue > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                                        {formatCurrency(summary.balanceDue)}
                                     </span>
                                 </div>
                             </div>
@@ -203,7 +208,7 @@ export const PaymentHistoryModal: React.FC<PaymentHistoryModalProps> = ({ paymen
                             <div className="mt-4 pt-3 border-t border-white/10">
                                 <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
                                     <div 
-                                        className={`h-full transition-all duration-500 rounded-full ${data.summary.balanceDue === 0 ? 'bg-emerald-400' : 'bg-primary-400'}`}
+                                        className={`h-full transition-all duration-500 rounded-full ${summary.balanceDue === 0 ? 'bg-emerald-400' : 'bg-primary-400'}`}
                                         style={{ width: `${percentPaid}%` }}
                                     />
                                 </div>
@@ -218,17 +223,17 @@ export const PaymentHistoryModal: React.FC<PaymentHistoryModalProps> = ({ paymen
                                     Payment Installments & Settlements
                                 </h4>
                                 <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-surface-100 text-surface-600">
-                                    {data.history.length} {data.history.length === 1 ? 'Record' : 'Records'}
+                                    {history.length} {history.length === 1 ? 'Record' : 'Records'}
                                 </span>
                             </div>
 
-                            {data.history.length === 0 ? (
+                            {history.length === 0 ? (
                                 <div className="p-8 text-center bg-surface-50 rounded-2xl border border-dashed border-surface-200">
                                     <p className="text-sm text-surface-500">No installments recorded yet for this policy.</p>
                                 </div>
                             ) : (
                                 <div className="space-y-3">
-                                    {data.history.map((item, idx) => {
+                                    {history.map((item, idx) => {
                                         const isBatch = item.type === 'batch';
 
                                         return (
