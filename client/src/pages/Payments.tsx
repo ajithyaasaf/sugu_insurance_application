@@ -440,17 +440,17 @@ const Payments: React.FC = () => {
                                             <td className="text-xs">
                                                 {p.paidAmount ? (
                                                     <div className="flex items-center gap-1.5">
-                                                        <span className="font-semibold text-emerald-700">{formatCurrency(p.paidAmount)}</span>
+                                                        <span>{formatCurrency(p.paidAmount)}</span>
                                                         <button
                                                             type="button"
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 setHistoryPaymentId(p.id);
                                                             }}
-                                                            className="p-1 rounded-md text-surface-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
+                                                            className="p-1 rounded text-surface-400 hover:text-surface-700 hover:bg-surface-100 transition-colors"
                                                             title="View Payment Breakdown & History"
                                                         >
-                                                            <HiOutlineClock className="w-4 h-4" />
+                                                            <HiOutlineClock className="w-3.5 h-3.5" />
                                                         </button>
                                                     </div>
                                                 ) : '—'}
@@ -524,11 +524,11 @@ const Payments: React.FC = () => {
                                                     e.stopPropagation();
                                                     setHistoryPaymentId(p.id);
                                                 }}
-                                                className="text-emerald-600 font-medium hover:underline flex items-center gap-1"
+                                                className="text-surface-700 font-medium hover:text-primary-600 flex items-center gap-1"
                                                 title="View Installment History"
                                             >
                                                 <span>Paid: {formatCurrency(p.paidAmount)}</span>
-                                                <HiOutlineClock className="w-3.5 h-3.5 text-emerald-600 inline" />
+                                                <HiOutlineClock className="w-3.5 h-3.5 text-surface-400 inline" />
                                             </button>
                                         ) : null}
                                     </div>
