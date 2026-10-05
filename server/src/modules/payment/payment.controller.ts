@@ -103,6 +103,13 @@ export class PaymentController {
             sendSuccess({ res, statusCode: 200, message: 'Batch receipt found', data: batch });
         } catch (e: any) { e.statusCode ? sendError({ res, statusCode: e.statusCode, message: e.message }) : next(e); }
     }
+
+    async getPaymentHistory(req: Request, res: Response, next: NextFunction) {
+        try {
+            const result = await paymentService.getPaymentHistory(req.user!.userId, req.user!.role, req.params.id as string);
+            sendSuccess({ res, statusCode: 200, message: 'Payment history fetched', data: result });
+        } catch (e: any) { e.statusCode ? sendError({ res, statusCode: e.statusCode, message: e.message }) : next(e); }
+    }
 }
 
 export const paymentController = new PaymentController();

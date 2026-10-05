@@ -661,6 +661,111 @@ export class PaymentService {
         if (!batch) throw Object.assign(new Error('Batch receipt not found'), { statusCode: 404 });
         return batch;
     }
+
+    async getPaymentHistory(userId: string, role: string, id: string) {
+        const payment = await prisma.payment.findFirst({
+            where: { id, ...ownerFilter(userId, role) },
+            include: {
+                customer: true,
+                policy: {
+                    include: { company: true, dealer: true }
+                },
+                paymentBatch: true
+            },
+        });
+        if (!payment) throw Object.assign(new Error('Payment not found'), { statusCode: 404 });
+
+        const history: any[] = [];
+        const batchRegex = /Batch #([A-Z0-9-]+)\s+\(\+₹([0-9.]+)\)/g;
+        let match;
+        let totalFromBatches = 0;
+        const receiptNumbers: { receiptNo: string; allocAmt: number }[] = [];
+
+        if (payment.notes) {
+            while ((match = batchRegex.exec(payment.notes)) !== null) {
+                const receiptNo = match[1];
+                const allocAmt = parseFloat(match[2]);
+                receiptNumbers.push({ receiptNo, allocAmt });
+                totalFromBatches += allocAmt;
+            }
+        }
+
+        if (receiptNumbers.length > 0) {
+            const batches = await prisma.paymentBatch.findMany({
+                where: { receiptNo: { in: receiptNumbers.map(r => r.receiptNo) } }
+            });
+            const batchMap = new Map(batches.map(b => [b.receiptNo, b]));
+
+            for (const item of receiptNumbers) {
+                const b = batchMap.get(item.receiptNo);
+                history.push({
+                    type: 'batch',
+                    amount: item.allocAmt,
+                    receiptNo: item.receiptNo,
+                    date: b ? b.paymentDate : (payment.paidDate || payment.createdAt),
+                    payerName: b ? b.payerName : (payment.policy?.dealer?.name || 'Dealer / Source'),
+                    payerType: b ? b.payerType : (payment.policy?.dealerId ? 'dealer' : 'reference'),
+                    paymentMethod: b ? b.paymentMethod : null,
+                    referenceNumber: b ? b.referenceNumber : null,
+                    notes: b ? b.notes : null,
+                    batchId: b ? b.id : null,
+                });
+            }
+        }
+
+        const initialManual = (payment.paidAmount || 0) - totalFromBatches;
+        if (initialManual > 0.01) {
+            const act = await prisma.activityLog.findFirst({
+                where: {
+                    entityId: payment.id,
+                    entityType: 'payment',
+                    action: 'UPDATE'
+                },
+                orderBy: { createdAt: 'asc' }
+            });
+
+            history.unshift({
+                type: 'manual',
+                amount: Math.round(initialManual * 100) / 100,
+                receiptNo: null,
+                date: act ? act.createdAt : (payment.paidDate || payment.createdAt),
+                payerName: payment.customer?.name || 'Customer / Direct',
+                payerType: 'direct',
+                paymentMethod: payment.policy?.paymentMethod || 'Direct Payment',
+                referenceNumber: null,
+                notes: 'Direct collection before batch payments',
+                batchId: null,
+            });
+        }
+
+        if (history.length === 0 && (payment.paidAmount || 0) > 0) {
+            history.push({
+                type: 'manual',
+                amount: payment.paidAmount,
+                receiptNo: null,
+                date: payment.paidDate || payment.createdAt,
+                payerName: payment.customer?.name || 'Customer',
+                payerType: 'direct',
+                paymentMethod: payment.policy?.paymentMethod || 'Direct Payment',
+                referenceNumber: null,
+                notes: payment.notes || 'Payment recorded',
+                batchId: null,
+            });
+        }
+
+        history.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+        return {
+            payment: mapPaymentStatus(payment),
+            history,
+            summary: {
+                amount: payment.amount,
+                paidAmount: payment.paidAmount || 0,
+                balanceDue: Math.max(0, payment.amount - (payment.paidAmount || 0)),
+                installmentsCount: history.length
+            }
+        };
+    }
 }
 
 export const paymentService = new PaymentService();

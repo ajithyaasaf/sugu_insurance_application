@@ -7,7 +7,7 @@ import TableSkeleton from '../components/ui/TableSkeleton';
 import SearchableSelect from '../components/ui/SearchableSelect';
 import { formatDate, formatCurrency, getStatusColor, scrollToFirstError, formatVehicleClass } from '../utils/format';
 import toast from 'react-hot-toast';
-import { HiOutlinePlus, HiOutlineSearch, HiOutlinePencil, HiOutlineCreditCard, HiOutlineDocumentDownload, HiOutlineTag, HiOutlineCollection } from 'react-icons/hi';
+import { HiOutlinePlus, HiOutlineSearch, HiOutlinePencil, HiOutlineCreditCard, HiOutlineDocumentDownload, HiOutlineTag, HiOutlineCollection, HiOutlineClock } from 'react-icons/hi';
 import { PAYMENT_STATUSES as statusOptions, VEHICLE_CLASSES } from '../utils/constants';
 import Button from '../components/ui/Button';
 import jsPDF from 'jspdf';
@@ -15,6 +15,7 @@ import autoTable from 'jspdf-autotable';
 import { useAuth } from '../context/AuthContext';
 import BatchCollectionModal from '../components/payments/BatchCollectionModal';
 import BatchHistoryTab from '../components/payments/BatchHistoryTab';
+import PaymentHistoryModal from '../components/payments/PaymentHistoryModal';
 
 const Payments: React.FC = () => {
     const { user } = useAuth();
@@ -35,6 +36,7 @@ const Payments: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [modalOpen, setModalOpen] = useState(false);
     const [batchModalOpen, setBatchModalOpen] = useState(false);
+    const [historyPaymentId, setHistoryPaymentId] = useState<string | null>(null);
     const [editing, setEditing] = useState<any>(null);
     const [form, setForm] = useState({
         customerId: '', policyId: '', amount: '', dueDate: '', paidDate: '', paidAmount: '', status: 'pending', notes: '',
@@ -435,7 +437,24 @@ const Payments: React.FC = () => {
                                             </td>
                                             <td className="font-semibold text-surface-900 text-xs">{formatCurrency(isStaff ? p.amount : grossPremium)}</td>
                                             <td className="text-xs">{formatDate(p.dueDate)}</td>
-                                            <td className="text-xs">{p.paidAmount ? formatCurrency(p.paidAmount) : '—'}</td>
+                                            <td className="text-xs">
+                                                {p.paidAmount ? (
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span className="font-semibold text-emerald-700">{formatCurrency(p.paidAmount)}</span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setHistoryPaymentId(p.id);
+                                                            }}
+                                                            className="p-1 rounded-md text-surface-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
+                                                            title="View Payment Breakdown & History"
+                                                        >
+                                                            <HiOutlineClock className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                ) : '—'}
+                                            </td>
                                             <td className="text-xs">
                                                 <div className="flex flex-col">
                                                     <span className={`font-bold ${outstanding > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
@@ -498,7 +517,20 @@ const Payments: React.FC = () => {
                                     <p className="text-xs text-surface-500 mb-2">Due: {formatDate(p.dueDate)}</p>
                                     <div className="flex justify-between items-center text-sm">
                                         <span>Amount: <strong>{formatCurrency(isStaff ? p.amount : grossPremium)}</strong></span>
-                                        {p.paidAmount ? <span className="text-emerald-600 font-medium">Paid: {formatCurrency(p.paidAmount)}</span> : null}
+                                        {p.paidAmount ? (
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setHistoryPaymentId(p.id);
+                                                }}
+                                                className="text-emerald-600 font-medium hover:underline flex items-center gap-1"
+                                                title="View Installment History"
+                                            >
+                                                <span>Paid: {formatCurrency(p.paidAmount)}</span>
+                                                <HiOutlineClock className="w-3.5 h-3.5 text-emerald-600 inline" />
+                                            </button>
+                                        ) : null}
                                     </div>
                                     {outstanding > 0 && (
                                         <div className="mt-2 pt-2 border-t border-dashed border-surface-200 flex justify-between items-center text-sm">
@@ -642,6 +674,12 @@ const Payments: React.FC = () => {
                     fetchPayments(meta.page);
                     setBatchRefreshTrigger(prev => prev + 1);
                 }}
+            />
+
+            <PaymentHistoryModal
+                paymentId={historyPaymentId}
+                isOpen={!!historyPaymentId}
+                onClose={() => setHistoryPaymentId(null)}
             />
 
             <button onClick={openCreate} className="fab lg:hidden"><HiOutlinePlus className="w-6 h-6" /></button>

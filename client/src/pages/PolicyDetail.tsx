@@ -19,6 +19,7 @@ import {
     HiOutlineCreditCard
 } from 'react-icons/hi';
 import Button from '../components/ui/Button';
+import PaymentHistoryModal from '../components/payments/PaymentHistoryModal';
 
 const PolicyDetail: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -28,6 +29,7 @@ const PolicyDetail: React.FC = () => {
     
     // Quick Add Payment State
     const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [historyPaymentId, setHistoryPaymentId] = useState<string | null>(null);
     const [paymentAmount, setPaymentAmount] = useState('');
     const [paymentNotes, setPaymentNotes] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -427,15 +429,30 @@ const PolicyDetail: React.FC = () => {
 
                             {policy.payments?.length > 0 && (
                                 <div className="pt-2">
-                                    <p className="text-[10px] font-bold text-surface-400 uppercase tracking-wider mb-2">Recent Collections</p>
-                                    <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <p className="text-[10px] font-bold text-surface-400 uppercase tracking-wider">Recent Collections</p>
+                                        <span className="text-[10px] text-surface-400">Click to view history</span>
+                                    </div>
+                                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                                         {policy.payments.filter((p: any) => p.status === 'paid' || (p.paidAmount || 0) > 0).map((p: any) => (
-                                            <div key={p.id} className="flex justify-between items-center text-xs p-2 hover:bg-surface-50 rounded-lg transition-colors border border-transparent hover:border-surface-100">
+                                            <div 
+                                                key={p.id} 
+                                                onClick={() => setHistoryPaymentId(p.id)}
+                                                className="flex justify-between items-center text-xs p-2.5 bg-surface-50 hover:bg-primary-50/60 rounded-xl transition-all border border-surface-200/60 hover:border-primary-200 cursor-pointer group shadow-2xs"
+                                                title="View detailed installment history"
+                                            >
                                                 <div>
-                                                    <p className="font-semibold text-surface-900">{formatCurrency(p.paidAmount || p.amount)}</p>
-                                                    <p className="text-[10px] text-surface-400">{formatDate(p.paidDate || p.createdAt)}</p>
+                                                    <div className="flex items-center gap-1.5">
+                                                        <p className="font-bold text-surface-900 group-hover:text-primary-700">
+                                                            {formatCurrency(p.paidAmount || p.amount)}
+                                                        </p>
+                                                        <span className="text-[10px] font-bold text-primary-600 bg-primary-100/70 px-1.5 py-0.2 rounded-full opacity-80 group-hover:opacity-100 transition-opacity">
+                                                            History ↗
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-[10px] text-surface-400 mt-0.5">{formatDate(p.paidDate || p.createdAt)}</p>
                                                 </div>
-                                                <HiOutlineCreditCard className="w-3.5 h-3.5 text-surface-300" />
+                                                <HiOutlineClock className="w-4 h-4 text-surface-400 group-hover:text-primary-600 transition-colors" />
                                             </div>
                                         ))}
                                     </div>
@@ -602,6 +619,12 @@ const PolicyDetail: React.FC = () => {
                     </div>
                 </form>
             </Modal>
+
+            <PaymentHistoryModal
+                paymentId={historyPaymentId}
+                isOpen={!!historyPaymentId}
+                onClose={() => setHistoryPaymentId(null)}
+            />
         </div>
     );
 };
