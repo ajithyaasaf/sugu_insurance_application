@@ -247,6 +247,8 @@ export class PolicyService {
                     { customer: { name: { contains: search, mode: 'insensitive' } } },
                     { policyNumber: { contains: search, mode: 'insensitive' } },
                     { vehicleNumber: { contains: search, mode: 'insensitive' } },
+                    { make: { contains: search, mode: 'insensitive' } },
+                    { model: { contains: search, mode: 'insensitive' } },
                     { referenceName: { contains: search, mode: 'insensitive' } },
                     { referenceLocation: { contains: search, mode: 'insensitive' } },
                     ...(matchedClasses.length > 0 ? [{ vehicleClass: { in: matchedClasses as any } }] : [])

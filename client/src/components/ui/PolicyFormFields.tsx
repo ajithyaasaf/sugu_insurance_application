@@ -417,22 +417,78 @@ const PolicyFormFields: React.FC<PolicyFormFieldsProps> = ({ form, setForm, comp
                         className="input" 
                         value={form.productName || ''} 
                         onChange={(e) => handleChange('productName', e.target.value)} 
-                        placeholder="e.g. Health Guard"
+                        placeholder={form.vehicleClass === 'CPM' ? "Contractor's Plant & Machinery (CPM)" : "e.g. Health Guard"}
                     />
                 </div>
             )}
 
             {isNonMotor && (
-                <div>
-                    <label className="label">Vehicle Class</label>
-                    <SearchableSelect
-                        options={NON_MOTOR_VEHICLE_CLASSES.map(c => ({ value: c, label: formatVehicleClass(c) }))}
-                        value={form.vehicleClass || ''}
-                        onChange={(val) => handleChange('vehicleClass', val)}
-                        allLabel="Select Class"
-                        hasError={!!errors.vehicleClass}
-                    />
-                </div>
+                <>
+                    <div>
+                        <label className="label">Vehicle Class</label>
+                        <SearchableSelect
+                            options={NON_MOTOR_VEHICLE_CLASSES.map(c => ({ value: c, label: formatVehicleClass(c) }))}
+                            value={form.vehicleClass || ''}
+                            onChange={(val) => {
+                                handleChange('vehicleClass', val);
+                                if (val === 'CPM') {
+                                    if (!form.productName) {
+                                        handleChange('productName', "Contractor's Plant & Machinery (CPM)");
+                                    }
+                                } else {
+                                    handleChange('make', '');
+                                    handleChange('model', '');
+                                    if (form.productName === "Contractor's Plant & Machinery (CPM)") {
+                                        handleChange('productName', '');
+                                    }
+                                    if (typeof setErrors === 'function') {
+                                        setErrors((prev: any) => ({ ...prev, make: '', model: '' }));
+                                    }
+                                }
+                            }}
+                            allLabel="Select Class"
+                            hasError={!!errors.vehicleClass}
+                        />
+                    </div>
+
+                    {form.vehicleClass === 'CPM' && (
+                        <>
+                            <div>
+                                <label className="label">Machine / Serial / Reg No</label>
+                                <input
+                                    className="input uppercase"
+                                    placeholder="e.g. TN01AB1234 or CAT-320D-12345"
+                                    value={form.vehicleNumber || ''}
+                                    onChange={(e) => handleChange('vehicleNumber', e.target.value.toUpperCase())}
+                                />
+                            </div>
+
+                            <div>
+                                <label className="label">Make {isRequired ? '*' : ''}</label>
+                                <input
+                                    className={`input ${errors.make ? 'border-red-500 focus:ring-red-400' : ''}`}
+                                    data-error-field={errors.make ? 'true' : undefined}
+                                    placeholder="e.g. JCB / Caterpillar / Komatsu"
+                                    value={form.make || ''}
+                                    onChange={(e) => handleChange('make', e.target.value)}
+                                />
+                                {errors.make && <p className="text-xs text-red-500 mt-1">{errors.make}</p>}
+                            </div>
+
+                            <div>
+                                <label className="label">Model {isRequired ? '*' : ''}</label>
+                                <input
+                                    className={`input ${errors.model ? 'border-red-500 focus:ring-red-400' : ''}`}
+                                    data-error-field={errors.model ? 'true' : undefined}
+                                    placeholder="e.g. 3DX / PC210"
+                                    value={form.model || ''}
+                                    onChange={(e) => handleChange('model', e.target.value)}
+                                />
+                                {errors.model && <p className="text-xs text-red-500 mt-1">{errors.model}</p>}
+                            </div>
+                        </>
+                    )}
+                </>
             )}
 
             {isMotor && (

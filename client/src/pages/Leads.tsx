@@ -334,6 +334,14 @@ const Leads: React.FC = () => {
                 if (!make) errs.make = 'Make is required';
                 if (!model) errs.model = 'Model is required';
             }
+        } else if (policyType === 'non_motor') {
+            const vehicleClass = convertingLead?.vehicleClass || convertForm.vehicleClass;
+            if (vehicleClass === 'CPM') {
+                const make = convertingLead?.make || convertForm.make;
+                const model = convertingLead?.model || convertForm.model;
+                if (!make) errs.make = 'Make is required';
+                if (!model) errs.model = 'Model is required';
+            }
         }
 
         if (Object.keys(errs).length > 0) {
@@ -438,7 +446,7 @@ const Leads: React.FC = () => {
                                         <td className="font-medium text-surface-900">
                                             <div className="flex flex-wrap items-center gap-1.5">
                                                 {lead.name}
-                                                {lead.policyType === 'motor' && lead.vehicleClass && (
+                                                {(lead.policyType === 'motor' || lead.policyType === 'non_motor') && lead.vehicleClass && (
                                                     <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-surface-100 text-surface-700 border border-surface-200 uppercase">
                                                         {formatVehicleClass(lead.vehicleClass)}
                                                     </span>
@@ -825,6 +833,55 @@ const Leads: React.FC = () => {
                                                 <input
                                                     className={`input ${errors.model ? 'border-red-500 focus:ring-red-400' : ''}`}
                                                     placeholder="e.g. Swift"
+                                                    value={convertForm.model}
+                                                    onChange={(e) => {
+                                                        setConvertForm(prev => ({ ...prev, model: e.target.value }));
+                                                        setErrors(prev => ({ ...prev, model: '' }));
+                                                    }}
+                                                />
+                                                {errors.model && <p className="text-xs text-red-500 mt-1">{errors.model}</p>}
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+
+                                {((convertingLead?.policyType || convertForm.policyType) === 'non_motor' && (convertingLead?.vehicleClass || convertForm.vehicleClass) === 'CPM') && (
+                                    <>
+                                        {!convertingLead?.vehicleNumber && (
+                                            <div>
+                                                <label className="label">Machine / Serial / Reg No</label>
+                                                <input
+                                                    className="input uppercase"
+                                                    placeholder="e.g. TN01AB1234 or CAT-320D-12345"
+                                                    value={convertForm.vehicleNumber}
+                                                    onChange={(e) => {
+                                                        setConvertForm(prev => ({ ...prev, vehicleNumber: e.target.value.toUpperCase() }));
+                                                        setErrors(prev => ({ ...prev, vehicleNumber: '' }));
+                                                    }}
+                                                />
+                                            </div>
+                                        )}
+                                        {!convertingLead?.make && (
+                                            <div>
+                                                <label className="label">Make *</label>
+                                                <input
+                                                    className={`input ${errors.make ? 'border-red-500 focus:ring-red-400' : ''}`}
+                                                    placeholder="e.g. JCB / Caterpillar / Komatsu"
+                                                    value={convertForm.make}
+                                                    onChange={(e) => {
+                                                        setConvertForm(prev => ({ ...prev, make: e.target.value }));
+                                                        setErrors(prev => ({ ...prev, make: '' }));
+                                                    }}
+                                                />
+                                                {errors.make && <p className="text-xs text-red-500 mt-1">{errors.make}</p>}
+                                            </div>
+                                        )}
+                                        {!convertingLead?.model && (
+                                            <div>
+                                                <label className="label">Model *</label>
+                                                <input
+                                                    className={`input ${errors.model ? 'border-red-500 focus:ring-red-400' : ''}`}
+                                                    placeholder="e.g. 3DX / PC210"
                                                     value={convertForm.model}
                                                     onChange={(e) => {
                                                         setConvertForm(prev => ({ ...prev, model: e.target.value }));

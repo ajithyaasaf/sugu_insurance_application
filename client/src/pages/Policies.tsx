@@ -205,6 +205,9 @@ const Policies: React.FC = () => {
                 if (!form.make) errs.make = 'Make is required';
                 if (!form.model) errs.model = 'Model is required';
             }
+        } else if (form.policyType === 'non_motor' && form.vehicleClass === 'CPM') {
+            if (!form.make) errs.make = 'Make is required';
+            if (!form.model) errs.model = 'Model is required';
         }
         if (form.discountPercentage) {
             const disc = parseFloat(form.discountPercentage);
@@ -592,7 +595,11 @@ const Policies: React.FC = () => {
                                         <td>
                                             <p className="font-medium text-surface-900">{p.customer?.name}</p>
                                             <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                                                <span className="text-xs text-surface-500">{p.productName || p.policyNumber || ''}</span>
+                                                <span className="text-xs text-surface-500">
+                                                    {p.vehicleClass === 'CPM' && (p.make || p.model)
+                                                        ? `${p.make || ''} ${p.model || ''}`.trim()
+                                                        : (p.productName || p.policyNumber || '')}
+                                                </span>
                                             </div>
                                         </td>
                                         <td className="capitalize">
@@ -639,6 +646,7 @@ const Policies: React.FC = () => {
                                     <div>
                                         <p className="font-semibold text-surface-900">{p.customer?.name}</p>
                                         <p className="text-xs text-surface-500 capitalize flex items-center gap-1.5">
+                                            {p.vehicleClass === 'CPM' && (p.make || p.model) ? `${p.make || ''} ${p.model || ''}`.trim() + ' • ' : ''}
                                             {p.policyType} • {p.company?.name}
                                             {p.policyOrigin === 'new_vehicle' && <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-green-200 text-[10px] font-medium bg-green-50 text-green-800">New Vehicle</span>}
                                             {p.policyOrigin === 'external_renewal' && <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-amber-200 text-[10px] font-medium bg-amber-50 text-amber-800">External</span>}

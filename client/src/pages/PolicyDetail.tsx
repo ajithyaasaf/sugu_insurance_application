@@ -188,7 +188,11 @@ const PolicyDetail: React.FC = () => {
                                 <div>
                                     <p className="text-xs font-bold text-surface-400 uppercase tracking-wider">Policy Details</p>
                                     <p className="text-sm font-medium text-surface-900">
-                                        {policy.policyType === 'motor' ? `${policy.make || ''} ${policy.model || ''}`.trim() || (policy.vehicleClass ? formatVehicleClass(policy.vehicleClass) : 'Motor') : policy.productName || policy.policyType}
+                                        {policy.policyType === 'motor' 
+                                            ? `${policy.make || ''} ${policy.model || ''}`.trim() || (policy.vehicleClass ? formatVehicleClass(policy.vehicleClass) : 'Motor') 
+                                            : policy.vehicleClass === 'CPM'
+                                                ? (`${policy.make || ''} ${policy.model || ''}`.trim() || policy.productName || 'CPM')
+                                                : policy.productName || policy.policyType}
                                     </p>
                                     <p className="text-xs text-surface-500">No: {policy.policyNumber || 'N/A'}</p>
                                 </div>
@@ -197,7 +201,7 @@ const PolicyDetail: React.FC = () => {
                                 <div className="flex items-start gap-3">
                                     <div className="p-2 bg-violet-50 rounded-lg text-violet-600"><HiOutlineShieldCheck className="w-5 h-5" /></div>
                                     <div>
-                                        <p className="text-xs font-bold text-surface-400 uppercase tracking-wider">Vehicle Number</p>
+                                        <p className="text-xs font-bold text-surface-400 uppercase tracking-wider">{policy.policyType === 'motor' ? 'Vehicle Number' : 'Machine / Serial No'}</p>
                                         <p className="text-sm font-medium text-surface-900">{policy.vehicleNumber}</p>
                                     </div>
                                 </div>

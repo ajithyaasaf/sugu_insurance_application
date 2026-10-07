@@ -424,13 +424,13 @@ export class LeadService {
                         noOfYears: Math.max(1, Math.round(Math.abs(expiryDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 365))),
 
                         // Non-motor / Health / Life fields
-                        productName: policyType === 'motor' ? null : (extra.productName || lead.productName || lead.interestedProduct || null),
+                        productName: policyType === 'motor' ? null : (extra.productName || lead.productName || lead.interestedProduct || ((lead.vehicleClass || extra.vehicleClass) === 'CPM' ? "Contractor's Plant & Machinery (CPM)" : null)),
                         sumInsured: policyType === 'motor' ? null : (extra.sumInsured !== undefined && extra.sumInsured !== null ? extra.sumInsured : (lead.sumInsured ?? null)),
 
-                        // Motor fields
-                        vehicleNumber: policyType === 'motor' ? (lead.vehicleNumber || extra.vehicleNumber || null) : null,
-                        make: policyType === 'motor' ? (lead.make || extra.make || null) : null,
-                        model: policyType === 'motor' ? (lead.model || extra.model || null) : null,
+                        // Motor & Non-Motor CPM fields
+                        vehicleNumber: (policyType === 'motor' || (lead.vehicleClass || extra.vehicleClass) === 'CPM') ? (lead.vehicleNumber || extra.vehicleNumber || null) : null,
+                        make: (policyType === 'motor' || (lead.vehicleClass || extra.vehicleClass) === 'CPM') ? (lead.make || extra.make || null) : null,
+                        model: (policyType === 'motor' || (lead.vehicleClass || extra.vehicleClass) === 'CPM') ? (lead.model || extra.model || null) : null,
                         registrationDate: policyType === 'motor' ? (lead.registrationDate || (extra.registrationDate ? new Date(extra.registrationDate) : null)) : null,
                         vehicleClass: policyType === 'motor' || policyType === 'non_motor' ? (lead.vehicleClass || extra.vehicleClass || null) : null,
                         idv: policyType === 'motor' ? (lead.idv !== null ? lead.idv : (extra.idv ?? null)) : null,
