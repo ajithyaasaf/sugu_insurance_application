@@ -15,11 +15,90 @@ interface UpdateOfferInput {
 
 export class OfferService {
     /**
+     * Synchronize a policy's payment record when an offer is created, modified, or removed.
+     * Handles 'pending', 'partial', and 'overdue' payments gracefully.
+     * Recalculates status ('paid' vs 'partial' vs 'pending') based on the new target amount and collections.
+     */
+    private async syncPaymentWithOffer(tx: any, policyId: string, targetAmount: number) {
+        const payment = await tx.payment.findFirst({
+            where: { policyId },
+            orderBy: { createdAt: 'asc' },
+        });
+
+        if (!payment) return null;
+
+        const allPayments = await tx.payment.findMany({
+            where: { policyId },
+        });
+        const paidAmount = allPayments.reduce((sum: number, p: any) => sum + (p.paidAmount || 0), 0);
+        let newStatus = payment.status;
+
+        // Money is the source of truth:
+        if (paidAmount >= targetAmount - 0.01 && targetAmount > 0) {
+            newStatus = 'paid';
+        } else if (paidAmount > 0.01) {
+            newStatus = 'partial';
+        } else {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const dueDate = payment.dueDate ? new Date(payment.dueDate) : null;
+            newStatus = (dueDate && dueDate < today) ? 'overdue' : 'pending';
+        }
+
+        const updated = await tx.payment.update({
+            where: { id: payment.id },
+            data: {
+                amount: targetAmount,
+                status: newStatus as any,
+                paidDate: newStatus === 'paid' && !payment.paidDate ? new Date() : (newStatus !== 'paid' && paidAmount === 0 ? null : payment.paidDate),
+            },
+        });
+
+        return updated;
+    }
+
+    /**
+     * One-time auto-healing check to repair any existing production records
+     * where an offer was attached after partial payment and the payment remained unsynced.
+     */
+    private async autoHealUnsyncedOffers() {
+        try {
+            const unsyncedOffers = await prisma.policyOffer.findMany({
+                where: {
+                    policy: {
+                        deletedAt: null,
+                    },
+                },
+                include: {
+                    policy: {
+                        include: {
+                            payments: {
+                                orderBy: { createdAt: 'asc' },
+                            },
+                        },
+                    },
+                },
+            });
+
+            for (const offer of unsyncedOffers) {
+                const payment = offer.policy.payments[0];
+                if (payment && Math.abs(payment.amount - offer.customerPayable) > 0.01) {
+                    await prisma.$transaction(async (tx) => {
+                        await this.syncPaymentWithOffer(tx, offer.policyId, offer.customerPayable);
+                    });
+                }
+            }
+        } catch {
+            // Non-blocking background healing
+        }
+    }
+
+    /**
      * Attach a company promotional offer to a policy (post-issuance).
      * - Validates the policy belongs to the user (ownership check).
-     * - Validates offerAmount < grossPremium.
-     * - Creates PolicyOffer record and adjusts the first pending Payment record to customerPayable.
-     * - Payment model logic (paid/partial/overdue) is never modified.
+     * - Validates offerAmount < grossPremium and <= remaining unpaid balance.
+     * - Creates PolicyOffer record and synchronizes Payment record to customerPayable.
+     * - Automatically marks payment as 'paid' if collections cover customerPayable.
      */
     async attachOffer(userId: string, role: string, data: AttachOfferInput) {
         // 1. Fetch policy with ownership check
@@ -41,7 +120,14 @@ export class OfferService {
 
         const grossPremium = policy.totalPremium ?? policy.premiumAmount;
 
-        // 3. Validate offer amount does not exceed gross premium
+        // Fetch existing payments to determine already collected amount
+        const existingPayments = await prisma.payment.findMany({
+            where: { policyId: data.policyId },
+        });
+        const totalPaidSoFar = existingPayments.reduce((sum, p) => sum + (p.paidAmount || 0), 0);
+        const remainingUnpaid = Math.max(0, grossPremium - totalPaidSoFar);
+
+        // 3. Validate offer amount does not exceed gross premium or remaining balance
         if (data.offerAmount >= grossPremium) {
             throw Object.assign(
                 new Error(`Offer amount (${data.offerAmount}) cannot be equal to or exceed gross premium (${grossPremium})`),
@@ -49,9 +135,16 @@ export class OfferService {
             );
         }
 
+        if (totalPaidSoFar > 0 && data.offerAmount > remainingUnpaid + 0.01) {
+            throw Object.assign(
+                new Error(`Offer amount (₹${data.offerAmount}) cannot exceed remaining unpaid balance (₹${remainingUnpaid})`),
+                { statusCode: 400 }
+            );
+        }
+
         const customerPayable = grossPremium - data.offerAmount;
 
-        // 4. Transactionally create the offer and adjust the pending payment record
+        // 4. Transactionally create the offer and adjust the payment record
         const result = await prisma.$transaction(async (tx) => {
             const offer = await tx.policyOffer.create({
                 data: {
@@ -67,20 +160,8 @@ export class OfferService {
                 include: { policy: { include: { customer: true, company: true } } },
             });
 
-            // Adjust ONLY the first pending payment record for this policy
-            // to reflect the new net customer payable amount.
-            // Paid/partial payments remain untouched.
-            const pendingPayment = await tx.payment.findFirst({
-                where: { policyId: data.policyId, status: 'pending' },
-                orderBy: { createdAt: 'asc' },
-            });
-
-            if (pendingPayment) {
-                await tx.payment.update({
-                    where: { id: pendingPayment.id },
-                    data: { amount: customerPayable },
-                });
-            }
+            // Adjust payment record (pending, partial, or overdue) to reflect customerPayable
+            await this.syncPaymentWithOffer(tx, data.policyId, customerPayable);
 
             return offer;
         });
@@ -120,9 +201,22 @@ export class OfferService {
         const newOfferAmount = data.offerAmount ?? existing.offerAmount;
         const grossPremium = existing.grossPremium;
 
+        const existingPayments = await prisma.payment.findMany({
+            where: { policyId: existing.policyId },
+        });
+        const totalPaidSoFar = existingPayments.reduce((sum, p) => sum + (p.paidAmount || 0), 0);
+        const remainingUnpaid = Math.max(0, grossPremium - totalPaidSoFar);
+
         if (newOfferAmount >= grossPremium) {
             throw Object.assign(
                 new Error(`Offer amount (${newOfferAmount}) cannot be equal to or exceed gross premium (${grossPremium})`),
+                { statusCode: 400 }
+            );
+        }
+
+        if (totalPaidSoFar > 0 && newOfferAmount > remainingUnpaid + 0.01) {
+            throw Object.assign(
+                new Error(`Offer amount (₹${newOfferAmount}) cannot exceed remaining unpaid balance (₹${remainingUnpaid})`),
                 { statusCode: 400 }
             );
         }
@@ -140,18 +234,8 @@ export class OfferService {
                 include: { policy: { include: { customer: true, company: true } } },
             });
 
-            // Sync the pending payment record to the new net amount
-            const pendingPayment = await tx.payment.findFirst({
-                where: { policyId: existing.policyId, status: 'pending' },
-                orderBy: { createdAt: 'asc' },
-            });
-
-            if (pendingPayment) {
-                await tx.payment.update({
-                    where: { id: pendingPayment.id },
-                    data: { amount: newCustomerPayable },
-                });
-            }
+            // Sync payment record to new net amount and recalculate status
+            await this.syncPaymentWithOffer(tx, existing.policyId, newCustomerPayable);
 
             return updated;
         });
@@ -161,7 +245,7 @@ export class OfferService {
 
     /**
      * Remove an offer from a policy.
-     * Restores the pending payment amount to the full gross premium.
+     * Restores the payment amount to the full gross premium and recalculates status.
      */
     async removeOffer(userId: string, role: string, offerId: string) {
         const existing = await prisma.policyOffer.findFirst({
@@ -174,18 +258,8 @@ export class OfferService {
         await prisma.$transaction(async (tx) => {
             await tx.policyOffer.delete({ where: { id: offerId } });
 
-            // Restore pending payment to full gross premium
-            const pendingPayment = await tx.payment.findFirst({
-                where: { policyId: existing.policyId, status: 'pending' },
-                orderBy: { createdAt: 'asc' },
-            });
-
-            if (pendingPayment) {
-                await tx.payment.update({
-                    where: { id: pendingPayment.id },
-                    data: { amount: existing.grossPremium },
-                });
-            }
+            // Restore payment to full gross premium and re-evaluate status
+            await this.syncPaymentWithOffer(tx, existing.policyId, existing.grossPremium);
         });
 
         return { message: 'Offer removed successfully' };
@@ -204,6 +278,9 @@ export class OfferService {
         dateFrom?: string,
         dateTo?: string,
     ) {
+        // Auto-heal any legacy unsynced payment records in the background
+        await this.autoHealUnsyncedOffers();
+
         const where: any = {
             ...ownerFilter(userId, role),
             policy: { deletedAt: null },
@@ -256,6 +333,9 @@ export class OfferService {
      * Summary metrics for the Offers page header cards.
      */
     async getSummary(userId: string, role: string) {
+        // Auto-heal any legacy unsynced payment records in the background
+        await this.autoHealUnsyncedOffers();
+
         const where = {
             ...ownerFilter(userId, role),
             policy: { deletedAt: null },

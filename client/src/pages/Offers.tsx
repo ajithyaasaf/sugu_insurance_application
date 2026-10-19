@@ -26,6 +26,14 @@ interface PolicyOption {
     customer: { name: string };
     company: { name: string };
     offer: { id: string } | null;
+    payments?: { id: string; status: string; amount: number; paidAmount: number | null }[];
+    totalPaid?: number;
+    remainingBalance?: number;
+    paymentSummary?: {
+        totalPaid: number;
+        customerPayable: number;
+        balanceDue: number;
+    };
 }
 
 interface Offer {
@@ -188,11 +196,36 @@ const Offers: React.FC = () => {
     };
 
     // Update selected policy preview when user picks a policy
-    const handlePolicySelect = (policyId: string) => {
+    const handlePolicySelect = async (policyId: string) => {
         const p = policies.find((p) => p.id === policyId) ?? null;
         setSelectedPolicy(p);
         setAttachForm((prev) => ({ ...prev, policyId }));
         setAttachErrors((prev) => ({ ...prev, policyId: '' }));
+
+        if (policyId) {
+            try {
+                const res = await api.get(`/policies/${policyId}`);
+                const fullPolicy = res.data?.data;
+                if (fullPolicy) {
+                    const gross = Number(fullPolicy.totalPremium ?? fullPolicy.premiumAmount ?? 0);
+                    const totalPaid = Number(
+                        fullPolicy.paymentSummary?.totalPaid ??
+                        (fullPolicy.payments || []).reduce(
+                            (sum: number, pay: any) => sum + (Number(pay.paidAmount) || 0),
+                            0
+                        )
+                    );
+                    const remainingBalance = Math.max(0, gross - totalPaid);
+                    setSelectedPolicy({
+                        ...fullPolicy,
+                        totalPaid,
+                        remainingBalance,
+                    });
+                }
+            } catch {
+                // If fetch fails, keep base policy selection
+            }
+        }
     };
 
     // Derived net customer payable preview
@@ -209,7 +242,14 @@ const Offers: React.FC = () => {
             errs.offerAmount = 'Enter a valid offer amount greater than 0';
         } else if (selectedPolicy) {
             const gross = selectedPolicy.totalPremium ?? selectedPolicy.premiumAmount;
-            if (amt >= gross) errs.offerAmount = `Offer cannot be equal to or exceed gross premium (${formatCurrency(gross)})`;
+            const totalPaid = selectedPolicy.totalPaid ?? 0;
+            const remainingBalance = Math.max(0, gross - totalPaid);
+
+            if (amt >= gross) {
+                errs.offerAmount = `Offer cannot be equal to or exceed gross premium (${formatCurrency(gross)})`;
+            } else if (totalPaid > 0 && amt > remainingBalance + 0.01) {
+                errs.offerAmount = `Offer cannot exceed remaining unpaid balance (${formatCurrency(remainingBalance)}). Already paid: ${formatCurrency(totalPaid)}`;
+            }
         }
         return errs;
     };
@@ -255,8 +295,15 @@ const Offers: React.FC = () => {
         if (!editForm.offerAmount || isNaN(amt) || amt <= 0) {
             errs.offerAmount = 'Enter a valid offer amount greater than 0';
         } else if (editingOffer) {
-            if (amt >= editingOffer.grossPremium) {
-                errs.offerAmount = `Offer cannot be equal to or exceed gross premium (${formatCurrency(editingOffer.grossPremium)})`;
+            const gross = editingOffer.grossPremium;
+            const payments = editingOffer.policy?.payments || [];
+            const totalPaid = payments.reduce((sum, p) => sum + (Number(p.paidAmount) || 0), 0);
+            const remainingBalance = Math.max(0, gross - totalPaid);
+
+            if (amt >= gross) {
+                errs.offerAmount = `Offer cannot be equal to or exceed gross premium (${formatCurrency(gross)})`;
+            } else if (totalPaid > 0 && amt > remainingBalance + 0.01) {
+                errs.offerAmount = `Offer cannot exceed remaining unpaid balance (${formatCurrency(remainingBalance)}). Already paid: ${formatCurrency(totalPaid)}`;
             }
         }
         return errs;
@@ -621,27 +668,49 @@ const Offers: React.FC = () => {
                         )}
                     </div>
 
-                    {/* Gross Premium Preview */}
+                    {/* Financial Preview Card */}
                     {selectedPolicy && (
-                        <div className="bg-surface-50 rounded-xl p-3 text-sm space-y-1 border border-surface-200">
-                            <div className="flex justify-between">
-                                <span className="text-surface-500">Gross Premium</span>
-                                <span className="font-semibold">
+                        <div className="bg-surface-50 rounded-xl p-3 text-sm space-y-1.5 border border-surface-200">
+                            <div className="flex justify-between text-surface-600">
+                                <span>Gross Premium</span>
+                                <span className="font-semibold text-surface-900">
                                     {formatCurrency(selectedPolicy.totalPremium ?? selectedPolicy.premiumAmount)}
                                 </span>
                             </div>
+                            {selectedPolicy.totalPaid !== undefined && selectedPolicy.totalPaid > 0 && (
+                                <div className="flex justify-between text-blue-600 text-xs">
+                                    <span>Already Paid by Customer</span>
+                                    <span className="font-semibold">
+                                        {formatCurrency(selectedPolicy.totalPaid)}
+                                    </span>
+                                </div>
+                            )}
                             {netPreview !== null && netPreview > 0 && (
                                 <>
-                                    <div className="flex justify-between text-amber-600">
+                                    <div className="flex justify-between text-amber-600 text-xs">
                                         <span>Company Offer</span>
                                         <span className="font-semibold">
                                             -{formatCurrency(parseFloat(attachForm.offerAmount || '0'))}
                                         </span>
                                     </div>
-                                    <div className="flex justify-between text-emerald-600 pt-1 border-t border-surface-200">
-                                        <span className="font-medium">Net Customer Payable</span>
-                                        <span className="font-bold">{formatCurrency(netPreview)}</span>
+                                    <div className="flex justify-between text-surface-700 pt-1 border-t border-surface-200 text-xs font-medium">
+                                        <span>Net Customer Payable Target</span>
+                                        <span className="font-bold text-surface-900">{formatCurrency(netPreview)}</span>
                                     </div>
+                                    {selectedPolicy.totalPaid !== undefined && selectedPolicy.totalPaid > 0 && (
+                                        <div className="flex justify-between items-center pt-1 border-t border-surface-200">
+                                            <span className="text-xs font-semibold text-surface-600">Remaining Balance:</span>
+                                            {netPreview <= (selectedPolicy.totalPaid ?? 0) ? (
+                                                <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                                                    ₹0 · Marked as PAID
+                                                </span>
+                                            ) : (
+                                                <span className="text-xs font-bold text-amber-700">
+                                                    {formatCurrency(netPreview - (selectedPolicy.totalPaid ?? 0))}
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
                                 </>
                             )}
                         </div>
@@ -682,7 +751,7 @@ const Offers: React.FC = () => {
                     <div className="flex gap-2 text-xs text-surface-500 bg-blue-50 rounded-xl p-3 border border-blue-100">
                         <HiOutlineInformationCircle className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
                         <span>
-                            The customer's pending payment will be automatically updated to the Net Customer Payable amount.
+                            The customer's payment record will automatically be synchronized. If payments already collected meet or exceed the net payable, the policy payment will automatically be marked as PAID.
                         </span>
                     </div>
 
@@ -702,7 +771,7 @@ const Offers: React.FC = () => {
                 {editingOffer && (
                     <form onSubmit={handleEditSubmit} className="space-y-4" noValidate>
                         {/* Read-only summary */}
-                        <div className="bg-surface-50 rounded-xl p-3 text-sm space-y-1 border border-surface-200">
+                        <div className="bg-surface-50 rounded-xl p-3 text-sm space-y-1.5 border border-surface-200">
                             <p className="font-medium text-surface-700">{editingOffer.policy.customer?.name}</p>
                             <p className="text-xs text-surface-500">
                                 {editingOffer.policy.policyNumber || editingOffer.policy.vehicleNumber || '—'} ·{' '}
@@ -712,6 +781,19 @@ const Offers: React.FC = () => {
                                 <span className="text-surface-500">Gross Premium</span>
                                 <span className="font-semibold">{formatCurrency(editingOffer.grossPremium)}</span>
                             </div>
+                            {(() => {
+                                const payments = editingOffer.policy?.payments || [];
+                                const totalPaid = payments.reduce((sum, p) => sum + (Number(p.paidAmount) || 0), 0);
+                                if (totalPaid > 0) {
+                                    return (
+                                        <div className="flex justify-between text-blue-600 text-xs">
+                                            <span>Already Paid by Customer</span>
+                                            <span className="font-semibold">{formatCurrency(totalPaid)}</span>
+                                        </div>
+                                    );
+                                }
+                                return null;
+                            })()}
                         </div>
 
                         <div>
@@ -729,12 +811,32 @@ const Offers: React.FC = () => {
                             {editErrors.offerAmount && (
                                 <p className="text-xs text-red-500 mt-1">{editErrors.offerAmount}</p>
                             )}
-                            {editForm.offerAmount && parseFloat(editForm.offerAmount) > 0 && (
-                                <p className="text-xs text-emerald-600 mt-1">
-                                    Net customer payable:{' '}
-                                    {formatCurrency(editingOffer.grossPremium - parseFloat(editForm.offerAmount || '0'))}
-                                </p>
-                            )}
+                            {editForm.offerAmount && parseFloat(editForm.offerAmount) > 0 && (() => {
+                                const netPayable = editingOffer.grossPremium - parseFloat(editForm.offerAmount || '0');
+                                const payments = editingOffer.policy?.payments || [];
+                                const totalPaid = payments.reduce((sum, p) => sum + (Number(p.paidAmount) || 0), 0);
+                                const balance = Math.max(0, netPayable - totalPaid);
+                                return (
+                                    <div className="text-xs space-y-1 mt-2 p-2.5 rounded-lg bg-surface-50 border border-surface-200">
+                                        <div className="flex justify-between text-surface-600">
+                                            <span>Net Customer Payable Target:</span>
+                                            <span className="font-semibold text-surface-800">{formatCurrency(netPayable)}</span>
+                                        </div>
+                                        {totalPaid > 0 && (
+                                            <div className="flex justify-between items-center pt-1 border-t border-surface-200">
+                                                <span className="text-surface-600 font-medium">Customer Balance Remaining:</span>
+                                                {balance <= 0 ? (
+                                                    <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                                        ₹0 · Marked as PAID
+                                                    </span>
+                                                ) : (
+                                                    <span className="font-bold text-amber-700">{formatCurrency(balance)}</span>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })()}
                         </div>
 
                         <div>

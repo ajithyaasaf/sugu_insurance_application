@@ -668,7 +668,7 @@ export class PaymentService {
             include: {
                 customer: true,
                 policy: {
-                    include: { company: true, dealer: true }
+                    include: { company: true, dealer: true, offer: true }
                 },
                 paymentBatch: true
             },

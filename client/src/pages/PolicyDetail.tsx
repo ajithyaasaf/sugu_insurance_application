@@ -119,7 +119,8 @@ const PolicyDetail: React.FC = () => {
     if (!policy) return null;
 
     const summary = policy.paymentSummary || { totalPremium: policy.totalPremium || policy.premiumAmount, totalPaid: 0, balanceDue: policy.totalPremium || policy.premiumAmount };
-    const percentPaid = Math.min(100, Math.round((summary.totalPaid / summary.totalPremium) * 100));
+    const targetPayable = summary.customerPayable || summary.totalPremium;
+    const percentPaid = targetPayable > 0 ? Math.min(100, Math.round((summary.totalPaid / targetPayable) * 100)) : 0;
 
     return (
         <div className="space-y-6 animate-fade-in">
@@ -421,13 +422,24 @@ const PolicyDetail: React.FC = () => {
                             </div>
 
                             <div className="grid grid-cols-1 gap-3">
+                                {policy.offer && (
+                                    <div className="p-3 bg-amber-50 rounded-xl border border-amber-200">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">Company Offer Applied</span>
+                                            <span className="text-xs font-bold text-amber-700">-{formatCurrency(policy.offer.offerAmount)}</span>
+                                        </div>
+                                        <p className="text-xs text-amber-800 font-medium mt-0.5">
+                                            Net Customer Due: {formatCurrency(policy.offer.customerPayable)}
+                                        </p>
+                                    </div>
+                                )}
                                 <div className="p-3 bg-surface-50 rounded-xl border border-surface-100">
                                     <p className="text-[10px] font-bold text-surface-400 uppercase tracking-wider mb-1">Total Paid</p>
                                     <p className="text-lg font-bold text-emerald-600">{formatCurrency(summary.totalPaid)}</p>
                                 </div>
-                                <div className="p-3 bg-red-50 rounded-xl border border-red-100">
-                                    <p className="text-[10px] font-bold text-red-400 uppercase tracking-wider mb-1">Balance Due</p>
-                                    <p className="text-lg font-bold text-red-600">{formatCurrency(summary.balanceDue)}</p>
+                                <div className={`p-3 rounded-xl border ${summary.balanceDue > 0 ? 'bg-red-50 border-red-100' : 'bg-emerald-50 border-emerald-100'}`}>
+                                    <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${summary.balanceDue > 0 ? 'text-red-400' : 'text-emerald-600'}`}>Balance Due</p>
+                                    <p className={`text-lg font-bold ${summary.balanceDue > 0 ? 'text-red-600' : 'text-emerald-600'}`}>{formatCurrency(summary.balanceDue)}</p>
                                 </div>
                             </div>
 

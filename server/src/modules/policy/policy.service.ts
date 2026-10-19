@@ -315,6 +315,7 @@ export class PolicyService {
                 customer: true,
                 company: true,
                 dealer: true,
+                offer: true,
                 parentPolicy: { include: { company: true } },
                 renewals: { where: { deletedAt: null }, include: { company: true } },
                 claims: true,
@@ -326,11 +327,14 @@ export class PolicyService {
 
         // Calculate financial summary
         const effectivePremium = policy.totalPremium || policy.premiumAmount;
+        const targetPayable = policy.offer ? policy.offer.customerPayable : effectivePremium;
         const totalPaid = policy.payments.reduce((sum, p) => sum + (p.paidAmount || 0), 0);
         const paymentSummary = {
             totalPremium: effectivePremium,
+            customerPayable: targetPayable,
+            offerAmount: policy.offer ? policy.offer.offerAmount : 0,
             totalPaid,
-            balanceDue: Math.max(0, effectivePremium - totalPaid)
+            balanceDue: Math.max(0, targetPayable - totalPaid)
         };
 
         const currentHasNoClaims = policy.claims.filter(c => c.status !== 'REJECTED').length === 0;
@@ -443,13 +447,28 @@ export class PolicyService {
             const newEffective = updatedPolicy.totalPremium || updatedPolicy.premiumAmount;
 
             if (newEffective !== oldEffective) {
+                // Check if policy has an attached offer
+                const offer = await tx.policyOffer.findUnique({ where: { policyId: id } });
+                const discount = offer ? offer.offerAmount : 0;
+                const effectiveCustomerPayable = Math.max(0, newEffective - discount);
+
+                if (offer) {
+                    await tx.policyOffer.update({
+                        where: { id: offer.id },
+                        data: {
+                            grossPremium: newEffective,
+                            customerPayable: effectiveCustomerPayable
+                        }
+                    });
+                }
+
                 // 1. Calculate how much has already been paid across all non-pending records
                 const collections = await tx.payment.aggregate({
                     where: { policyId: id, ...ownerFilter(userId, role), status: { not: 'pending' } },
                     _sum: { paidAmount: true }
                 });
                 const totalCollected = collections._sum.paidAmount || 0;
-                const newBalance = Math.max(0, newEffective - totalCollected);
+                const newBalance = Math.max(0, effectiveCustomerPayable - totalCollected);
 
                 // 2. Update the pending or partial placeholder to the new balance
                 const pendingPayment = await tx.payment.findFirst({
@@ -473,9 +492,13 @@ export class PolicyService {
                         }
                     });
                     if (partialPayment) {
+                        const newStatus = (totalCollected >= effectiveCustomerPayable - 0.01 && effectiveCustomerPayable > 0) ? 'paid' : 'partial';
                         await tx.payment.update({
                             where: { id: partialPayment.id },
-                            data: { amount: newEffective }
+                            data: {
+                                amount: effectiveCustomerPayable,
+                                status: newStatus as any,
+                            }
                         });
                     }
                 }

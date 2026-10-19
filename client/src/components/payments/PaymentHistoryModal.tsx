@@ -44,6 +44,11 @@ export interface PaymentHistoryData {
             dealer?: {
                 name: string;
             };
+            offer?: {
+                grossPremium: number;
+                offerAmount: number;
+                customerPayable: number;
+            } | null;
         };
     };
     history: PaymentHistoryItem[];
@@ -173,6 +178,20 @@ export const PaymentHistoryModal: React.FC<PaymentHistoryModalProps> = ({ paymen
                                     </span>
                                 </div>
                             </div>
+
+                            {/* Promotional Offer Banner */}
+                            {payment.policy?.offer && (
+                                <div className="mt-3 bg-amber-50/80 border border-amber-200 rounded-lg p-2.5 flex flex-wrap items-center justify-between text-xs text-amber-900 gap-2">
+                                    <div className="flex items-center gap-1.5 font-medium">
+                                        <span className="font-bold uppercase tracking-wider text-[10px] bg-amber-200/70 px-1.5 py-0.5 rounded text-amber-800">Company Offer</span>
+                                        <span>Gross: {formatCurrency(payment.policy.offer.grossPremium)}</span>
+                                        <span className="font-bold text-amber-700">(-{formatCurrency(payment.policy.offer.offerAmount)})</span>
+                                    </div>
+                                    <span className="font-bold text-emerald-700">
+                                        Net Target: {formatCurrency(payment.policy.offer.customerPayable)}
+                                    </span>
+                                </div>
+                            )}
 
                             {/* Summary Metrics Grid */}
                             <div className="grid grid-cols-3 gap-3 pt-3">
