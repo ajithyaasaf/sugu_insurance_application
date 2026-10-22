@@ -79,12 +79,12 @@ export class CommissionController {
             const data = history.map(c => ({
                 dealerName: (c as any).dealer?.name || 'Unknown',
                 companyName: (c as any).company?.name || 'All',
-                period: `${c.periodStart.toISOString().split('T')[0]} - ${c.periodEnd.toISOString().split('T')[0]}`,
-                odPercentage: `${c.odPercentage}%`,
-                tpPercentage: `${c.tpPercentage}%`,
+                period: `${c.periodStart ? c.periodStart.toISOString().split('T')[0] : ''} - ${c.periodEnd ? c.periodEnd.toISOString().split('T')[0] : ''}`,
+                odPercentage: `${c.odPercentage || 0}%`,
+                tpPercentage: `${c.tpPercentage || 0}%`,
                 totalPolicies: (c as any)._count?.commissionPolicies || 0,
-                totalCommission: `Rs. ${c.totalCommission.toFixed(2)}`,
-                status: c.status.toUpperCase(),
+                totalCommission: `Rs. ${(Number(c.totalCommission) || 0).toFixed(2)}`,
+                status: (c.status || '').toUpperCase(),
                 notes: c.notes || ''
             }));
 

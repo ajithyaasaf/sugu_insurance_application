@@ -324,9 +324,19 @@ export class CommissionService {
         const where: any = { userId };
         if (dealerId) where.dealerId = dealerId;
         if (status) where.status = status;
-        if (companyId) where.companyId = companyId;
+        if (companyId && typeof companyId === 'string' && companyId.trim() !== '') {
+            where.companyId = companyId;
+        } else if (Array.isArray(companyId) && companyId.length > 0) {
+            where.companyId = { in: companyId };
+        }
+
         if (companyIds) {
-            where.companyId = { in: typeof companyIds === 'string' ? companyIds.split(',') : companyIds };
+            const idsList = typeof companyIds === 'string'
+                ? companyIds.split(',').map(s => s.trim()).filter(Boolean)
+                : (Array.isArray(companyIds) ? companyIds.filter(Boolean) : []);
+            if (idsList.length > 0) {
+                where.companyId = { in: idsList };
+            }
         }
 
         if (dateFrom || dateTo) {

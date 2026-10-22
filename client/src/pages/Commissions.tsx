@@ -295,7 +295,9 @@ const Commissions: React.FC = () => {
 
             const reqBody: any = {};
             if (historyDealerFilter) reqBody.dealerId = historyDealerFilter;
-            if (historyCompanyFilter) reqBody.companyId = historyCompanyFilter;
+            if (Array.isArray(historyCompanyFilter) ? historyCompanyFilter.length > 0 : !!historyCompanyFilter) {
+                reqBody.companyIds = Array.isArray(historyCompanyFilter) ? historyCompanyFilter.join(',') : historyCompanyFilter;
+            }
             if (historyStatusFilter) reqBody.status = historyStatusFilter;
             if (historyDateFrom) reqBody.dateFrom = historyDateFrom;
             if (historyDateTo) reqBody.dateTo = historyDateTo;
