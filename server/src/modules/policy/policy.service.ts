@@ -239,10 +239,10 @@ export class PolicyService {
 
         const isExpiringSoon = status === 'expiring_soon' || expiringSoon === 'true' || expiringSoon === true;
 
-        const where: any = {
-            ...ownerFilter(userId, role),
-            deletedAt: null,
-            ...(search && {
+        const andConditions: any[] = [];
+
+        if (search) {
+            andConditions.push({
                 OR: [
                     { customer: { name: { contains: search, mode: 'insensitive' } } },
                     { policyNumber: { contains: search, mode: 'insensitive' } },
@@ -252,15 +252,13 @@ export class PolicyService {
                     { referenceName: { contains: search, mode: 'insensitive' } },
                     { referenceLocation: { contains: search, mode: 'insensitive' } },
                     ...(matchedClasses.length > 0 ? [{ vehicleClass: { in: matchedClasses as any } }] : [])
-                ],
-            }),
-            ...(isExpiringSoon ? {
-                status: 'active',
-                OR: [
-                    { expiryDate: { gte: todayIST, lte: thirtyDaysFromNow } },
-                    { tpEndDate: { gte: todayIST, lte: thirtyDaysFromNow } }
                 ]
-            } : (status ? buildStatusFilter(status) : {})),
+            });
+        }
+
+        const where: any = {
+            ...ownerFilter(userId, role),
+            deletedAt: null,
             ...(policyType && { policyType: policyType as any }),
             ...(companyId && { companyId }),
             ...(companyIds && {
@@ -275,6 +273,29 @@ export class PolicyService {
                 }
             })
         };
+
+        if (isExpiringSoon) {
+            where.status = 'active';
+            andConditions.push({
+                OR: [
+                    { expiryDate: { gte: todayIST, lte: thirtyDaysFromNow } },
+                    { tpEndDate: { gte: todayIST, lte: thirtyDaysFromNow } }
+                ]
+            });
+        } else if (status) {
+            const statusFilterObj = buildStatusFilter(status) as any;
+            if (statusFilterObj.OR) {
+                andConditions.push({ OR: statusFilterObj.OR });
+                const { OR: _unused, ...rest } = statusFilterObj;
+                Object.assign(where, rest);
+            } else {
+                Object.assign(where, statusFilterObj);
+            }
+        }
+
+        if (andConditions.length > 0) {
+            where.AND = andConditions;
+        }
 
         const total = await prisma.policy.count({ where });
         const policies = await prisma.policy.findMany({
