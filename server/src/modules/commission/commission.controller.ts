@@ -83,7 +83,7 @@ export class CommissionController {
                 odPercentage: `${c.odPercentage || 0}%`,
                 tpPercentage: `${c.tpPercentage || 0}%`,
                 totalPolicies: (c as any)._count?.commissionPolicies || 0,
-                totalCommission: `Rs. ${(Number(c.totalCommission) || 0).toFixed(2)}`,
+                totalCommission: Number((Number(c.totalCommission) || 0).toFixed(2)),
                 status: (c.status || '').toUpperCase(),
                 notes: c.notes || ''
             }));
