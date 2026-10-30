@@ -40,10 +40,11 @@ const filtersSchema = z.object({
     customerIds:  z.union([z.string(), z.array(z.string())]).optional(),
     policyType:   z.string().optional(),
     vehicleClass: z.string().optional(),
-    status:       z.string().optional(),
-    policyOrigin: z.string().optional(),
+    policyOrigin:  z.union([z.string(), z.array(z.string())]).optional(),
+    policyOrigins: z.union([z.string(), z.array(z.string())]).optional(),
     dateFrom:     z.string().optional(),   // ISO date string
     dateTo:       z.string().optional(),
+    renewalStatus: z.string().optional(),
 }).strict().optional();
 
 // ─── POST /api/reports/generate ──────────────────────────
